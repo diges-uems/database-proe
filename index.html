@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROE · Base de Dados UEMS</title>
+
+<!-- 
+  ======================================================================
+  ATENÇÃO: AMBIENTE DE BUILD REQUERIDO (VITE, WEBPACK, NEXT.JS)
+  ======================================================================
+  Para rodar este código em produção de forma otimizada (sem CDN), 
+  remova as 4 tags <script> abaixo e configure um bundler:
+  1. Instale as dependências: npm install react react-dom lucide-react
+  2. Configure o Tailwind: npm install -D tailwindcss postcss autoprefixer
+  3. Mova o conteúdo da tag <script type="text/babel"> para um arquivo App.jsx
+  ======================================================================
+-->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#002255;--navy2:#00338C;--green:#10B981;--green2:#059669;--amber:#D97706;--purple:#7C3AED;--red:#EF4444;--red2:#B91C1C;--bg:#F0F4F8;--card:#fff;--border:#E2E8F0;--border2:#CBD5E1;--txt:#0F172A;--txt2:#475569;--txt3:#94A3B8;--radius:10px;--radius-lg:16px;--radius-xl:20px;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.08);}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;font-size:14px;line-height:1.5}
+.mono{font-family:'JetBrains Mono',monospace}
+button{font-family:'Inter',sans-serif;cursor:pointer;border:none;background:none;text-decoration:none}
+a{text-decoration:none}
+input,select{font-family:'Inter',sans-serif;font-size:14px}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .9s linear infinite;display:inline-block}
+.page{padding-bottom:64px}
+.container-custom{max-width:1600px;margin:0 auto;padding:0 24px}
+.header{background:var(--navy);padding:24px 0 0}
+.header-top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.header-brand p{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#93C5FD;margin-bottom:6px}
+.header-brand h1{font-size:36px;font-weight:900;color:#fff;letter-spacing:-.03em;line-height:1}
+.header-brand h1 span{color:#93C5FD;font-weight:400}
+.header-brand small{display:block;font-size:12px;color:#93C5FD;margin-top:6px;font-weight:500}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:4px}
+.btn{height:36px;padding:0 16px;border-radius:var(--radius);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;justify-content:center}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.btn-ghost:hover:not(:disabled){background:rgba(255,255,255,.18)}
+.btn-green{background:var(--green);color:#fff;box-shadow:0 4px 12px rgba(16,185,129,.3)}
+.btn-green:hover:not(:disabled){background:var(--green2)}
+.btn-navy{background:var(--navy2);color:#fff;border:1px solid #1E3A8A}
+.btn-navy:hover:not(:disabled){background:var(--navy)}
+.btn-white{background:#fff;color:var(--txt2);border:1px solid var(--border)}
+.btn-white:hover:not(:disabled){background:#F8FAFC}
+.btn-edit{background:#EFF6FF;color:var(--navy2);border:1px solid #BFDBFE;font-size:10px;height:28px;padding:0 8px}
+.btn-edit:hover:not(:disabled){background:#DBEAFE}
+.stats-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-bottom:0}
+@media(max-width:1200px){.stats-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:#fff;border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px;box-shadow:0 -4px 16px rgba(0,0,0,.08);border:1px solid var(--border);border-bottom:none;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px}
+.stat-card.green::before{background:var(--green)}
+.stat-card.white::before{background:var(--navy)}
+.stat-card.amber::before{background:var(--amber)}
+.stat-card.purple::before{background:var(--purple)}
+.stat-card.blue::before{background:#3B82F6}
+.stat-card.red::before{background:var(--red)}
+.stat-card-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--txt2);margin-bottom:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat-card-val{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;line-height:1}
+.stat-card-val.green{color:var(--green)}
+.stat-card-val.white{color:var(--navy)}
+.stat-card-val.amber{color:var(--amber)}
+.stat-card-val.purple{color:var(--purple)}
+.stat-card-val.blue{color:#3B82F6}
+.stat-card-val.red{color:var(--red)}
+.stat-skeleton{height:32px;width:80px;background:#F1F5F9;border-radius:6px;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.tabs-container{display:flex;gap:24px;margin-bottom:20px;border-bottom:2px solid var(--border);margin-top:24px}
+.tab-btn{padding:0 8px 12px;background:none;border:none;border-bottom:3px solid transparent;color:var(--txt3);font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s;margin-bottom:-2px}
+.tab-btn:hover{color:var(--navy2)}
+.tab-btn.active{border-bottom-color:var(--navy2);color:var(--navy2)}
+.filter-bar{background:#fff;padding:20px 24px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;border-bottom:1px solid var(--border)}
+.filter-group{display:flex;flex-direction:column;gap:5px}
+.filter-group.grow{flex:1;min-width:180px}
+.filter-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--txt3)}
+.filter-input,.filter-select{height:36px;padding:0 12px;background:#F8FAFC;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-weight:500;color:var(--txt);outline:none;transition:border-color .15s,box-shadow .15s}
+.filter-input:focus,.filter-select:focus{border-color:var(--navy2);box-shadow:0 0 0 3px rgba(0,51,140,.1)}
+.filter-input{width:100%}
+.filter-select{cursor:pointer}
+.filter-search-wrap{position:relative}
+.filter-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--txt3);pointer-events:none}
+.filter-input.search{padding-left:34px}
+.filter-right{margin-left:auto;display:flex;align-items:flex-end;gap:8px}
+.table-panel-tab{background:var(--card);border-radius:var(--radius-xl);box-shadow:var(--shadow-md);border:1px solid var(--border);overflow:hidden}
+.table-info-bar{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--txt3);min-height:40px}
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+thead tr{background:var(--navy)}
+thead th{padding:12px 16px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.6);text-align:left}
+thead th.right{text-align:right}
+thead th.col-ingr{color:#FCD34D}
+thead th.col-mat{color:#93C5FD}
+thead th.col-concl{color:#C4B5FD}
+thead th.col-ev{color:#FCA5A5}
+tbody tr{border-bottom:1px solid #F8FAFC;transition:background .1s}
+tbody tr:hover{background:#F8FAFC}
+tbody tr.expanded{background:#F8FAFC}
+td{padding:12px 16px;vertical-align:middle}
+td.right{text-align:right}
+td.mono-val{font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right}
+td.col-ingr{color:var(--amber)}
+td.col-mat{color:var(--navy2)}
+td.col-concl{color:var(--purple)}
+td.col-ev{color:var(--red)}
+.td-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3)}
+.td-curso{font-weight:600;color:var(--txt);max-width:220px;white-space:normal;line-height:1.35}
+.td-unidade{font-size:12px;color:var(--txt2);font-weight:500}
+.td-dur{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--txt3)}
+.expand-btn{background:none;border:none;cursor:pointer;color:var(--txt3);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.expand-btn:hover{background:#E2E8F0;color:var(--navy2)}
+.expand-btn.open{color:var(--navy2);background:#EFF6FF}
+.row-actions{display:flex;gap:4px;justify-content:flex-end;opacity:0;transition:opacity .15s}
+tbody tr:hover .row-actions{opacity:1}
+.expand-row td{padding:0;background:#F8FAFF;border-bottom:2px solid var(--border)}
+.expand-content{padding:20px 24px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:900px){.expand-content{grid-template-columns:1fr}}
+.expand-card{background:#fff;border-radius:var(--radius-lg);padding:16px;border:1px solid var(--border);box-shadow:var(--shadow)}
+.expand-card-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--txt3);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.series-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.series-cell{background:#F8FAFC;border-radius:8px;padding:8px 4px;text-align:center;border:1px solid var(--border)}
+.series-cell span{display:block;font-size:9px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px}
+.series-cell strong{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--txt)}
+.ingresso-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.ingresso-cell{background:#F8FAFC;border-radius:8px;padding:10px;border:1px solid var(--border)}
+.ingresso-cell span{display:block;font-size:9px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px}
+.ingresso-cell strong{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--txt)}
+.meta-list{display:flex;flex-direction:column;gap:0}
+.meta-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #F1F5F9}
+.meta-row:last-child{border-bottom:none}
+.meta-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--txt3)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.badge-grau{background:#EFF6FF;color:#1E40AF}
+.badge-ativo{background:#D1FAE5;color:#065F46}
+.badge-extincao{background:#FEF3C7;color:#92400E}
+.badge-extinto{background:#FEE2E2;color:var(--red2)}
+.badge-default{background:#F1F5F9;color:#475569}
+.pagination{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.pag-info{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--txt3)}
+.pag-btns{display:flex;gap:4px;align-items:center}
+.pag-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:700;color:var(--txt2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.pag-btn:hover:not(:disabled){border-color:var(--navy2);color:var(--navy2)}
+.pag-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.pag-btn:disabled{opacity:.3;cursor:not-allowed}
+.empty{padding:60px 24px;text-align:center;color:var(--txt3)}
+.empty svg{margin:0 auto 16px;opacity:.3}
+.empty p{font-size:16px;font-weight:700;color:var(--txt2);margin-bottom:4px}
+.empty small{font-size:13px;display:block;max-width:400px;margin:0 auto}
+.loading-overlay{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(240,244,248,.85);backdrop-filter:blur(8px);text-align:center}
+.loading-overlay .spin-large{color:var(--navy2);margin-bottom:20px}
+.loading-overlay h2{font-size:24px;font-weight:900;color:var(--navy);margin-bottom:8px;letter-spacing:-.03em}
+.modal-bg{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,34,85,.55);backdrop-filter:blur(6px)}
+.modal-box{background:#fff;border-radius:var(--radius-xl);width:100%;max-width:860px;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.25)}
+.modal-head{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-head h2{font-size:18px;font-weight:900;color:var(--navy);letter-spacing:-.02em}
+.modal-body{padding:24px;overflow-y:auto;flex:1}
+.modal-foot{padding:14px 24px;border-top:1px solid var(--border);background:#FAFBFC;display:flex;justify-content:flex-end;gap:10px;border-radius:0 0 var(--radius-xl) var(--radius-xl)}
+.modal-close{background:#F1F5F9;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--txt2);transition:all .15s}
+.modal-close:hover{background:#FEE2E2;color:var(--red)}
+.form-section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px;margin-top:24px}
+.form-section-title:first-child{margin-top:0}
+.form-section-title.blue{color:var(--navy2);border-color:#BFDBFE}
+.form-section-title.amber{color:var(--amber);border-color:#FDE68A}
+.form-grid{display:grid;gap:14px}
+.form-grid.cols2{grid-template-columns:repeat(2,1fr)}
+.form-grid.cols4{grid-template-columns:repeat(4,1fr)}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--txt3)}
+.form-lbl .req{color:var(--red)}
+.form-ctrl{height:36px;padding:0 12px;background:#F8FAFC;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-weight:500;color:var(--txt);outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
+.form-ctrl:focus{border-color:var(--navy2);box-shadow:0 0 0 3px rgba(0,51,140,.1)}
+.form-ctrl.right{text-align:right;font-family:'JetBrains Mono',monospace}
+.import-box{border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:40px 24px;text-align:center;background:#F8FAFC;transition:all .2s ease;cursor:pointer;position:relative}
+.import-box:hover{border-color:var(--navy2);background:#EFF6FF}
+.progress-container{width:100%;background-color:var(--border);border-radius:6px;height:12px;overflow:hidden;margin-top:12px}
+.progress-bar{height:100%;background-color:var(--green);transition:width .3s ease}
+.preview-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px;border:1px solid var(--border)}
+.preview-table th{background:#F1F5F9;padding:8px 12px;font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.05em;color:var(--txt2);text-align:left}
+.preview-table td{padding:8px 12px;border-top:1px solid var(--border);color:var(--txt)}
+.status-tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;text-transform:uppercase}
+.status-tag.novo{background:#D1FAE5;color:#065F46}
+.status-tag.duplicata{background:#FECACA;color:#991B1B}
+.totals-box{background:#F8FAFC;border-radius:var(--radius-lg);border:1px solid var(--border);padding:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
+.total-item-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;display:flex;justify-content:space-between;align-items:center}
+.auto-tag{font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:3px;letter-spacing:.06em}
+.auto-tag.green{background:#D1FAE5;color:#065F46}
+.auto-tag.blue{background:#DBEAFE;color:#1E40AF}
+.total-val{height:44px;border-radius:var(--radius);display:flex;align-items:center;justify-content:flex-end;padding:0 14px;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;border:1px solid transparent}
+.total-val.ingr{background:#F0FDF4;border-color:#BBF7D0;color:#065F46}
+.total-val.mat{background:#EFF6FF;border-color:#BFDBFE;color:var(--navy2)}
+.total-val.concl{background:#F5F3FF;border-color:#DDD6FE}
+.total-val.concl input{background:transparent;border:none;outline:none;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--purple);text-align:right;width:100%}
+.toast{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;align-items:center;gap:12px;padding:12px 20px;border-radius:var(--radius-lg);font-size:13px;font-weight:700;box-shadow:0 16px 40px rgba(0,0,0,.18);animation:toastIn .25s ease;max-width:340px}
+.toast.success{background:var(--green);color:#fff;border-left:none}
+.toast.error{background:var(--red);color:#fff}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo } = React;
+
+const API = "https://script.google.com/macros/s/AKfycbxYRhUlLiZDaFUmpsVo-Wso4iMDx_V1tg6k6yyemVOw45ISbx3iq0kybY6N36hzDDtKhw/exec";
+
+const ANOS      = ["2018","2019","2020","2021","2022","2023","2024","2025","2026","2027","2028","2029","2030"];
+const UNIDADES  = ["Amambai","Aquidauana","Bataguassu","Campo Grande","Cassilândia","Costa Rica","Coxim","Dourados","Glória de Dourados","Ivinhema","Jardim","Maracaju","Mundo Novo","Naviraí","Nova Andradina","Paranaíba","Polos","Ponta Porã","Ribas do Rio Pardo","Água Clara"];
+const NUCLEOS   = ["NUCH","NUCAE","NULILA","NUCIBS","NUCS","NUCET"];
+const GRAUS     = ["Bacharelado","Licenciatura","Tecnológico"];
+const SITUACOES = ["Em Atividade","Em Extinção","Extinto"];
+const TURNOS    = ["Integral","Matutino","Vespertino","Noturno"];
+const TURNOS_OPTS = [...TURNOS, "Não informado"];
+const MODS      = ["Presencial","EAD","Semipresencial"];
+
+const IcoSearch   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
+const IcoPlus     = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+const IcoExternal = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>;
+const IcoUpload   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
+const IcoDownload = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+const IcoRefresh  = ({ className = "" }) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 2v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg>;
+const IcoSpinner  = ({ size = 15, className = "spin" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>;
+const IcoClose    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+const IcoCheck    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>;
+const IcoChevR    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>;
+const IcoChevL    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>;
+const IcoChevD    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>;
+
+const n = v => Number(v) || 0;
+const fmt = v => typeof v === 'string' && v.includes('%') ? v : n(v).toLocaleString("pt-BR");
+
+const fmtAno = (val) => {
+  if (!val) return "—";
+  return String(val).replace(/\./g, '').trim();
+};
+
+function nucleoBadge(nucleo) {
+  const cls = "badge badge-" + (["NUCH","NUCAE","NULILA","NUCIBS","NUCS","NUCET"].includes(nucleo) ? nucleo : "default");
+  return <span className={cls}>{nucleo || "—"}</span>;
+}
+
+function StatCard({ label, value, colorCls, loading }) {
+  return (
+    <div className={`stat-card ${colorCls}`}>
+      <div className="stat-card-lbl">{label}</div>
+      {loading ? <div className="stat-skeleton" /> : <div className={`stat-card-val ${colorCls}`}>{fmt(value)}</div>}
+    </div>
+  );
+}
+
+const EMPTY = {
+  _id:"", codigo:"", curso:"", unidade:"", ano: 2025,
+  duracao:"", grau:"Bacharelado", turno:"Integral", modalidade:"Presencial",
+  nucleo:"", situacao:"Em Atividade",
+  s1:0, s2:0, s3:0, s4:0, s5:0, s6:0,
+  vest:0, sisu:0, pss:0, outros:0,
+  ingressantes:0, matriculados:0, concluintes:0
+};
+
+const CSV_HEADERS = ["codigo", "curso", "unidade", "ano", "duracao", "grau", "turno", "modalidade", "nucleo", "situacao", "s1", "s2", "s3", "s4", "s5", "s6", "vest", "sisu", "pss", "outros", "concluintes", "evasao"];
+
+const FILTER_CONFIG = [
+  { k: "ano", lbl: "Ano", o: ANOS }, 
+  { k: "unidade", lbl: "Unidade", o: UNIDADES }, 
+  { k: "nucleo", lbl: "Núcleo", o: NUCLEOS, hideOnVagas: true }, 
+  { k: "grau", lbl: "Grau", o: GRAUS }, 
+  { k: "situacao", lbl: "Situação", o: SITUACOES, hideOnVagas: true }
+];
+
+function App() {
+  const [activeTab, setActiveTab] = useState('base'); 
+  const [filters, setFilters] = useState({ ano:"", unidade:"", nucleo:"", grau:"", situacao:"" });
+  const [searchTerm, setSearchTerm] = useState(""); 
+  
+  const [page, setPage] = useState(1);
+  const [pageProj, setPageProj] = useState(1);
+  const [perPage, setPerPage] = useState(50);
+  
+  const [expanded, setExpanded] = useState(new Set());
+  const [modal, setModal] = useState(false);
+  const [importModal, setImportModal] = useState(false);
+  const [importStep, setImportStep] = useState(1);
+  const [parsedRecords, setParsedRecords] = useState([]);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [form, setForm] = useState(EMPTY);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const [dataCache, setDataCache] = useState({ data: [], projecoes: [], meta: {} });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const getNum = useCallback((obj, keys) => {
+    if (!obj) return 0;
+    for (let k in obj) {
+      const cleanK = String(k).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (keys.includes(cleanK)) return Number(obj[k]) || 0;
+    }
+    return 0;
+  }, []);
+
+  const getStr = useCallback((obj, keys) => {
+    if (!obj) return "—";
+    for (let k in obj) {
+      const cleanK = String(k).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (keys.includes(cleanK) && obj[k] !== undefined && String(obj[k]).trim() !== "") return String(obj[k]);
+    }
+    return "—";
+  }, []);
+
+  const safeParseJSON = async (response) => {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("Erro ao fazer parse do JSON do servidor. Resposta bruta:", text);
+      throw new Error("Falha na sincronização. O cache pode ter estourado o limite. Clique em Sincronizar para tentar novamente.");
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchAPI(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm, filters, page, pageProj, perPage, activeTab]);
+
+  const fetchAPI = useCallback((searchStr) => {
+    setLoading(true);
+    setError(null);
+    
+    const params = new URLSearchParams({
+      page: activeTab === 'base' ? page : pageProj,
+      perPage,
+      search: searchStr || "",
+      ...filters
+    });
+
+    const targetYear = Number(filters.ano || 2025);
+    const prevYear = targetYear - 1;
+
+    const statsParams = new URLSearchParams({
+      page: 1, 
+      perPage: 1, 
+      search: searchStr || "",
+      ...filters,
+      ano: targetYear 
+    });
+
+    const prevStatsParams = new URLSearchParams({
+      page: 1, 
+      perPage: 1, 
+      search: searchStr || "",
+      ...filters,
+      ano: prevYear
+    });
+
+    const fetchMain = fetch(`${API}?${params.toString()}`)
+      .then(async r => {
+        if (!r.ok) throw new Error("A requisição falhou.");
+        return safeParseJSON(r);
+      });
+
+    const fetchStats = filters.ano 
+      ? Promise.resolve(null)
+      : fetch(`${API}?${statsParams.toString()}`).then(async r => {
+          if (!r.ok) return null;
+          return safeParseJSON(r);
+        });
+
+    const fetchPrevStats = fetch(`${API}?${prevStatsParams.toString()}`)
+      .then(async r => {
+        if (!r.ok) return null;
+        return safeParseJSON(r);
+      });
+
+    Promise.all([fetchMain, fetchStats, fetchPrevStats])
+      .then(([dataRes, statsRes, prevStatsRes]) => {
+        if (dataRes.error) throw new Error(dataRes.error);
+        
+        let currentStats = dataRes.meta.stats;
+        if (statsRes && statsRes.meta && statsRes.meta.stats) {
+          currentStats = statsRes.meta.stats;
+          dataRes.meta.stats = currentStats;
+        }
+
+        let globalEvasao = "—";
+        if (prevStatsRes && prevStatsRes.meta && prevStatsRes.meta.stats && currentStats) {
+          const prevStats = prevStatsRes.meta.stats;
+          const matAtual = n(currentStats.matriculados);
+          const ingAtual = n(currentStats.ingressantes);
+          const matAnt = n(prevStats.matriculados);
+          const conclAnt = n(prevStats.concluintes);
+
+          const baseAnt = matAnt - conclAnt;
+          if (baseAnt > 0) {
+            const calc = (1 - ((matAtual - ingAtual) / baseAnt)) * 100;
+            globalEvasao = calc.toFixed(1).replace('.', ',') + '%';
+          }
+        }
+        dataRes.meta.globalEvasao = globalEvasao;
+        
+        setDataCache(dataRes);
+        setLoading(false);
+      })
+      .catch(err => { 
+        let errMsg = err.message;
+        if (errMsg.includes('NetworkError') || errMsg.includes('Failed to fetch')) {
+          errMsg = "Erro de rede (NetworkError). Verifique sua conexão e certifique-se de que o Apps Script foi implantado como 'Aplicativo da Web' para 'Qualquer pessoa'.";
+        }
+        setError(errMsg); 
+        setLoading(false); 
+      });
+  }, [filters, page, pageProj, perPage, activeTab]);
+
+  const { data: rows = [], projecoes: rowsProj = [], meta = {} } = dataCache;
+  const { totalPages = 1, totalRows = 0, stats = {} } = meta;
+  
+  const memoizedRows = useMemo(() => rows, [rows]);
+  
+  const filteredProj = useMemo(() => {
+    return (rowsProj || [])
+      .filter(r => {
+        const rAno = getNum(r, ['ano', 'ano letivo', 'anobase']);
+        const rUnidade = getStr(r, ['unidade', 'unidade universitaria', 'campus', 'uu']);
+        const rGrau = getStr(r, ['grau', 'nivel', 'tipo']);
+        const rCurso = getStr(r, ['curso', 'nome do curso', 'programa']);
+        const rCodigo = getStr(r, ['codigo', 'id', 'cod']);
+
+        if (filters.ano && rAno !== Number(filters.ano)) return false;
+        if (filters.unidade && rUnidade !== filters.unidade) return false;
+        if (filters.grau && rGrau !== filters.grau) return false;
+        if (searchTerm) {
+          const term = searchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const blob = [rCurso, rUnidade, rCodigo, rGrau].join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          if (!blob.includes(term)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => getNum(b, ['ano', 'ano letivo']) - getNum(a, ['ano', 'ano letivo']));
+  }, [rowsProj, filters, searchTerm, getStr, getNum]);
+
+  const totalRowsProj = filteredProj.length;
+  const totalPagesProj = Math.max(1, Math.ceil(totalRowsProj / perPage));
+  
+  useEffect(() => { 
+    if (pageProj > totalPagesProj && totalPagesProj > 0) setPageProj(totalPagesProj); 
+  }, [pageProj, totalPagesProj]);
+  
+  const paginatedProj = useMemo(() => {
+    return filteredProj.slice((pageProj - 1) * perPage, pageProj * perPage);
+  }, [filteredProj, pageProj, perPage]);
+
+  const memoStats = useMemo(() => {
+    const targetYear = filters.ano || 2025;
+    let potencialVagas = 0;
+    
+    filteredProj.forEach(p => {
+       const pAno = p.ano || p['ano letivo'] || p.anobase;
+       if (Number(pAno) === Number(targetYear)) {
+         potencialVagas += Number(p.total || p.vagas || p['total vagas'] || p['total de vagas']) || 0;
+       }
+    });
+    
+    const txOcu = potencialVagas > 0 && stats.matriculados > 0 ? (stats.matriculados / potencialVagas) * 100 : 0;
+
+    return { 
+      ...stats, 
+      ocupacao: txOcu > 0 ? txOcu.toFixed(1).replace('.', ',') + '%' : '0%', 
+      anoRef: targetYear,
+      evasao: meta.globalEvasao || "—"
+    };
+  }, [stats, filteredProj, filters.ano, meta.globalEvasao]);
+
+  useEffect(() => {
+    const ingr = n(form.vest) + n(form.sisu) + n(form.pss) + n(form.outros);
+    const mat  = n(form.s1) + n(form.s2) + n(form.s3) + n(form.s4) + n(form.s5) + n(form.s6);
+    setForm(f => ({ ...f, ingressantes: ingr, matriculados: mat }));
+  }, [form.vest, form.sisu, form.pss, form.outros, form.s1, form.s2, form.s3, form.s4, form.s5, form.s6]);
+
+  const setFilter = (k, v) => { 
+    setFilters(f => ({ ...f, [k]: v })); 
+    setPage(1); 
+    setPageProj(1); 
+  };
+
+  const clearFilters = () => {
+    setFilters({ ano:"", unidade:"", nucleo:"", grau:"", situacao:"" });
+    setSearchTerm("");
+    setPage(1);
+    setPageProj(1);
+  };
+
+  const showToast = (msg, type = "success") => { setToast({ msg, type }); setTimeout(() => setToast(null), 3200); };
+  
+  const openModal = (rec = null) => { 
+    const codeClean = rec && rec.codigo ? String(rec.codigo).split('_')[0] : "";
+    setForm(rec ? { ...EMPTY, ...rec, codigo: codeClean } : EMPTY); 
+    setModal(true); 
+  };
+  
+  const toggleExpand = id => setExpanded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const save = async e => {
+    e.preventDefault();
+    if (!form.curso.trim()) { showToast("Curso obrigatório", "error"); return; }
+    setSaving(true);
+    try {
+      const r = await fetch(API, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "SAVE", data: form }) 
+      });
+      const j = await safeParseJSON(r);
+      if (j.status !== "success") throw new Error(j.message);
+      showToast(form._id ? "Atualizado!" : "Salvo!");
+      setModal(false); fetchAPI(searchTerm);
+    } catch(err) { showToast(err.message, "error"); }
+    finally { setSaving(false); }
+  };
+
+  const processBatchImport = async () => {
+    const toSave = parsedRecords.filter(r => r._status === 'novo' || r._status === 'duplicata'); // Batch permite UPSERT
+    if (toSave.length === 0) { showToast("Sem registros para processar", "error"); setImportModal(false); return; }
+    
+    setImportStep(3); 
+    setImportProgress({ current: 'Processando lote no servidor...', total: toSave.length });
+    
+    try { 
+      const res = await fetch(API, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "SAVE_BATCH", data: toSave }) 
+      }); 
+      const j = await safeParseJSON(res);
+      if (j.status !== "success") throw new Error(j.message);
+      showToast(`${toSave.length} registros processados em lote!`); 
+    } catch (e) {
+      showToast(e.message, "error");
+    } finally {
+      setImportModal(false); fetchAPI(searchTerm);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const rowsCsv = evt.target.result.split('\n').filter(r => r.trim().length > 0);
+      if(rowsCsv.length <= 1) return showToast("Arquivo vazio", "error");
+      const records = rowsCsv.slice(1).map(row => {
+        const values = row.split(';'); let obj = { ...EMPTY, _id: null };
+        CSV_HEADERS.forEach((key, i) => {
+          if (values[i] !== undefined) {
+             const val = values[i].trim();
+             if (key === "codigo") { obj[key] = String(val).split('_')[0]; }
+             else if(["s1","s2","s3","s4","s5","s6","vest","sisu","pss","outros","concluintes","evasao","ano","duracao"].includes(key)) obj[key] = Number(val) || 0;
+             else obj[key] = val;
+          }
+        });
+        obj.ingressantes = obj.vest + obj.sisu + obj.pss + obj.outros;
+        obj.matriculados = obj.s1 + obj.s2 + obj.s3 + obj.s4 + obj.s5 + obj.s6;
+        obj._status = 'novo'; 
+        return obj;
+      }).filter(r => r.curso);
+      setParsedRecords(records); setImportStep(2); e.target.value = null;
+    };
+    reader.readAsText(file, 'ISO-8859-1');
+  };
+
+  const downloadTemplate = () => {
+    const header = "Código do Curso;Nome do Curso;Unidade;Ano Letivo;Duração (anos);Grau;Turno;Modalidade;Núcleo;Situação;Série 1;Série 2;Série 3;Série 4;Série 5;Série 6;Ingressantes Vestibular;Ingressantes SISU;Ingressantes PSS;Ingressantes Outros;Concluintes;Evasao\n";
+    const sample = "1681113;Silvicultura;Água Clara;2025;2;Tecnológico;Noturno;Presencial;;Em Atividade;40;40;0;0;0;0;10;20;5;5;15;0\n";
+    const blob = new Blob(["\uFEFF" + header + sample], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "UEMS_Modelo.csv"; a.click();
+  };
+
+  return (
+    <div className="page">
+      {/* OVERLAY DE LOADING INICIAL */}
+      {loading && memoizedRows.length === 0 && !error && (
+        <div className="loading-overlay">
+          <IcoSpinner size={48} className="spin spin-large" />
+          <h2>Atualizando Base de Dados UEMS...</h2>
+          <p>Conectando ao banco de dados oficial.</p>
+        </div>
+      )}
+
+      {/* HEADER */}
+      <div className="header">
+        <div className="container-custom">
+          <div className="header-top">
+            <div className="header-brand">
+              <p>Pró-Reitoria de Ensino · UEMS</p>
+              <h1>PROE <span>Base de Dados</span></h1>
+              <small>Graduação · 2018–2030</small>
+            </div>
+            <div className="header-actions">
+              <a href="https://docs.google.com/spreadsheets/d/1_pGPcgzi8dz1TGjQ4bXlRnDDWYVamVBl-jpw9kg3-y8/edit?gid=205659061" target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
+                <IcoExternal/> Planilha
+              </a>
+              <button className="btn btn-ghost" onClick={() => fetchAPI(searchTerm)} disabled={loading}>
+                <IcoRefresh className={loading ? "spin" : ""} /> Sincronizar
+              </button>
+              <button className="btn btn-navy" onClick={() => { setImportStep(1); setImportModal(true); }}>
+                <IcoUpload/> Importar Lote
+              </button>
+              <button className="btn btn-green" onClick={() => openModal()}>
+                <IcoPlus/> Novo Registro
+              </button>
+            </div>
+          </div>
+          
+          {/* STATS CARDS */}
+          <div className="stats-grid">
+            <StatCard label={`Cursos (${memoStats.anoRef})`} value={memoStats.cursos} colorCls="green" loading={loading} />
+            <StatCard label={`Ingressantes (${memoStats.anoRef})`} value={memoStats.ingressantes} colorCls="amber" loading={loading} />
+            <StatCard label={`Matriculados (${memoStats.anoRef})`} value={memoStats.matriculados} colorCls="white" loading={loading} />
+            <StatCard label={`Concluintes (${memoStats.anoRef})`} value={memoStats.concluintes} colorCls="purple" loading={loading} />
+            <StatCard label={`Taxa de Ocupação`} value={memoStats.ocupacao} colorCls="blue" loading={loading} />
+            <StatCard label={`Evasão Média Global`} value={memoStats.evasao} colorCls="red" loading={loading} />
+          </div>
+        </div>
+      </div>
+
+      <div className="container-custom">
+
+        {/* TABS */}
+        <div className="tabs-container">
+          <button className={`tab-btn ${activeTab === 'base' ? 'active' : ''}`} onClick={() => { setActiveTab('base'); setPage(1); }}>
+            Base de Matrículas
+          </button>
+          <button className={`tab-btn ${activeTab === 'vagas' ? 'active' : ''}`} onClick={() => { setActiveTab('vagas'); setPageProj(1); }}>
+            Projeções de Vagas
+          </button>
+        </div>
+
+        {/* PAINEL DA TABELA */}
+        <div className="table-panel-tab">
+          
+          {/* BARRA DE FILTROS */}
+          <div className="filter-bar">
+            <div className="filter-group grow">
+              <span className="filter-lbl">Buscar</span>
+              <div className="filter-search-wrap">
+                <span className="filter-search-icon"><IcoSearch/></span>
+                <input className="filter-input search" type="text" placeholder="Curso, código, unidade..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              </div>
+            </div>
+            
+            {/* RENDERIZAÇÃO DOS FILTROS DINÂMICAMENTE */}
+            {FILTER_CONFIG.map(f => {
+              // Ocultar filtros não aplicáveis na aba de Projeções (ex: Núcleo, Situação)
+              if (activeTab === 'vagas' && f.hideOnVagas) return null;
+              
+              return (
+                <div className="filter-group" key={f.k}>
+                  <span className="filter-lbl">{f.lbl}</span>
+                  <select className="filter-select" value={filters[f.k]} onChange={e => setFilter(f.k, e.target.value)}>
+                    <option value="">Todos</option>
+                    {f.o.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+              );
+            })}
+            
+            <div className="filter-right">
+              {/* BOTÃO LIMPAR FILTROS */}
+              {(searchTerm || filters.ano || filters.unidade || filters.nucleo || filters.grau || filters.situacao) && (
+                <div className="filter-group">
+                  <span className="filter-lbl">&nbsp;</span>
+                  <button className="btn btn-white" style={{color: 'var(--txt2)', gap: '4px'}} onClick={clearFilters} title="Remover todos os filtros">
+                    <IcoClose /> Limpar
+                  </button>
+                </div>
+              )}
+              
+              <div className="filter-group">
+                <span className="filter-lbl">Exibir</span>
+                <select className="filter-select" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); setPageProj(1); }}>
+                  {[20,50,100,250].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* INFO BAR */}
+          <div className="table-info-bar">
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {activeTab === 'base' 
+                ? `${totalRows.toLocaleString('pt-BR')} registros (Base) · pág. ${page}/${totalPages}`
+                : `${totalRowsProj.toLocaleString('pt-BR')} projeções de vagas · pág. ${pageProj}/${totalPagesProj}`
+              }
+              {loading && <IcoSpinner size={12} className="spin text-blue-600" />}
+            </span>
+          </div>
+          
+          {/* TABELA DE DADOS */}
+          <div className="table-scroll">
+            <table>
+              <thead>
+                {activeTab === 'base' ? (
+                  <tr>
+                    <th style={{width:36}}></th>
+                    <th>Código</th>
+                    <th style={{minWidth:200}}>Curso</th>
+                    <th>Unidade</th>
+                    <th>Ano</th>
+                    <th>Grau</th>
+                    <th className="right">Dur.</th>
+                    <th className="right col-ingr">Ingr.</th>
+                    <th className="right col-mat">Mat.</th>
+                    <th className="right col-concl">Concl.</th>
+                    <th className="right col-ev" title="Calculado via Server">Ev. (%)</th>
+                    <th className="right" title="Projeção de Vagas Ofertadas - Total Matriculados">Vagas Ociosas</th>
+                    <th></th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th>Código</th>
+                    <th style={{minWidth:200}}>Curso</th>
+                    <th>Unidade</th>
+                    <th>Ano</th>
+                    <th>Turno</th>
+                    <th className="right">Dur.</th>
+                    <th className="right">S1</th>
+                    <th className="right">S2</th>
+                    <th className="right">S3</th>
+                    <th className="right">S4</th>
+                    <th className="right">S5</th>
+                    <th className="right">S6</th>
+                    <th className="right col-mat text-[11px]">Total Vagas</th>
+                  </tr>
+                )}
+              </thead>
+              <tbody>
+                {/* EMPTY STATES */}
+                {activeTab === 'base' && !loading && memoizedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={13}>
+                      <div className="empty">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        <p>{error ? "Erro no Servidor" : "Nenhum registro encontrado"}</p>
+                        <small style={{color:'var(--red)'}}>{error ? String(error) : "Ajuste os filtros."}</small>
+                        {error && <button className="btn btn-navy mt-4" onClick={() => fetchAPI(searchTerm)}>Tentar Novamente</button>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {activeTab === 'vagas' && !loading && paginatedProj.length === 0 && (
+                  <tr>
+                    <td colSpan={13}>
+                      <div className="empty">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        <p>{error ? "Erro no Servidor" : "Nenhuma projeção encontrada"}</p>
+                        <small style={{color:'var(--red)'}}>{error ? String(error) : "Aba 'Projeções' vazia ou filtros ativos não se aplicam."}</small>
+                        {error && <button className="btn btn-navy mt-4" onClick={() => fetchAPI(searchTerm)}>Tentar Novamente</button>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* LINHAS: BASE */}
+                {activeTab === 'base' && memoizedRows.map(row => {
+                  const isOpen = expanded.has(row._id);
+                  const codigoLimpo = row.codigo ? String(row.codigo).split('_')[0] : "—";
+                  
+                  let vagasOciosas = "—";
+                  const cCurso = String(row.curso).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                  const cUnidade = String(row.unidade).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                  const cTurno = String(row.turno || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                  
+                  const pMatches = (rowsProj || []).filter(p => {
+                     const pAno = p.ano || p['ano letivo'] || p.anobase;
+                     if (Number(pAno) !== Number(row.ano)) return false;
+                     
+                     const pUnidade = String(p.unidade || p['unidade universitaria'] || p.campus || p.uu || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                     if (pUnidade !== cUnidade) return false;
+                     
+                     const pTurno = String(p.turno || p.periodo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                     if (pTurno && cTurno && pTurno !== "nao informado" && cTurno !== "nao informado") {
+                         if (!pTurno.includes(cTurno) && !cTurno.includes(pTurno)) return false;
+                     }
+                     
+                     const pCurso = String(p.curso || p['nome do curso'] || p.programa || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                     return pCurso === cCurso || pCurso.includes(cCurso) || cCurso.includes(pCurso);
+                  });
+
+                  if (pMatches.length > 0) {
+                      const vagas = pMatches.reduce((acc, p) => acc + (Number(p.total || p.vagas || p['total vagas'] || p['total de vagas']) || 0), 0);
+                      vagasOciosas = vagas - n(row.matriculados);
+                  }
+
+                  const ociosasColor = vagasOciosas !== "—" 
+                      ? (vagasOciosas > 0 ? "bg-emerald-100 text-emerald-700" : (vagasOciosas < 0 ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600")) 
+                      : "text-slate-500";
+
+                  return (
+                    <React.Fragment key={row._id}>
+                      <tr className={isOpen ? "expanded" : ""}>
+                        <td style={{paddingLeft:12}}><button className={`expand-btn${isOpen?" open":""}`} onClick={() => toggleExpand(row._id)}>{isOpen ? <IcoChevD/> : <IcoChevR/>}</button></td>
+                        <td><span className="td-code">{codigoLimpo}</span></td>
+                        <td><span className="td-curso">{row.curso}</span></td>
+                        <td><span className="td-unidade">{row.unidade}</span></td>
+                        <td><span className="mono font-bold text-slate-600">{fmtAno(row.ano)}</span></td>
+                        <td><span className="badge badge-grau">{row.grau}</span></td>
+                        <td className="right"><span className="td-dur">{row.duracao || "—"}</span></td>
+                        <td className="mono-val col-ingr">{fmt(row.ingressantes)}</td>
+                        <td className="mono-val col-mat">{fmt(row.matriculados)}</td>
+                        <td className="mono-val col-concl">{fmt(row.concluintes)}</td>
+                        <td className="mono-val col-ev font-bold">{row.evasao || "—"}</td>
+                        <td className="mono-val font-bold">
+                          <span className={`inline-block px-2 py-1 rounded ${ociosasColor}`}>
+                            {vagasOciosas !== "—" ? (vagasOciosas > 0 ? `+${vagasOciosas}` : vagasOciosas) : "—"}
+                          </span>
+                        </td>
+                        <td><div className="row-actions"><button className="btn btn-edit" onClick={() => openModal(row)}>Editar</button></div></td>
+                      </tr>
+                      {isOpen && (
+                        <tr><td colSpan={13} className="expand-row"><div className="expand-content">
+                          <div className="expand-card"><div className="expand-card-title">Matrículas por Série</div><div className="series-grid">
+                            {[1,2,3,4,5,6].map(i => <div className="series-cell" key={i}><span>{i}ª</span><strong>{fmt(row[`s${i}`])}</strong></div>)}
+                          </div></div>
+                          <div className="expand-card"><div className="expand-card-title">Ingresso</div><div className="ingresso-grid">
+                            {[["Vestibular","vest"],["SISU","sisu"],["PSS","pss"],["Outros","outros"]].map(([l,k]) => <div className="ingresso-cell" key={k}><span>{l}</span><strong>{fmt(row[k])}</strong></div>)}
+                          </div></div>
+                          <div className="expand-card"><div className="expand-card-title">Detalhes</div><div className="meta-list">
+                            <div className="meta-row"><span className="meta-lbl">Núcleo</span>{nucleoBadge(row.nucleo)}</div>
+                            <div className="meta-row"><span className="meta-lbl">Turno</span><span className="font-semibold text-slate-700">{row.turno||"—"}</span></div>
+                            <div className="meta-row"><span className="meta-lbl">Modalidade</span><span className="font-semibold text-slate-700">{row.modalidade||"—"}</span></div>
+                            <div className="meta-row"><span className="meta-lbl">Situação</span><span className={`badge ${row.situacao==='Em Atividade'?'badge-ativo':row.situacao==='Extinto'?'badge-extinto':'badge-extincao'}`}>{row.situacao}</span></div>
+                          </div></div>
+                        </div></td></tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* LINHAS: PROJEÇÕES (Filtradas e Paginadas Localmente) */}
+                {activeTab === 'vagas' && paginatedProj.map((row, idx) => {
+                  const codigo = row.codigo || row.id || row.cod || "—";
+                  const codigoLimpo = codigo !== "—" ? String(codigo).split('_')[0] : "—";
+                  return (
+                    <tr key={idx}>
+                      <td><span className="td-code">{codigoLimpo}</span></td>
+                      <td><span className="td-curso">{row.curso || row['nome do curso'] || "—"}</span></td>
+                      <td><span className="td-unidade">{row.unidade || row['unidade universitaria'] || row.uu || "—"}</span></td>
+                      <td><span className="mono font-bold text-slate-600">{fmtAno(row.ano || row['ano letivo'] || row.anobase)}</span></td>
+                      <td><span className="font-semibold text-slate-700">{row.turno || row.periodo || "—"}</span></td>
+                      <td className="right"><span className="td-dur">{row.duracao || row.pi || "—"}</span></td>
+                      <td className="mono-val">{fmt(row.s1 || row['1a serie'] || 0)}</td>
+                      <td className="mono-val">{fmt(row.s2 || row['2a serie'] || 0)}</td>
+                      <td className="mono-val">{fmt(row.s3 || row['3a serie'] || 0)}</td>
+                      <td className="mono-val">{fmt(row.s4 || row['4a serie'] || 0)}</td>
+                      <td className="mono-val">{fmt(row.s5 || row['5a serie'] || 0)}</td>
+                      <td className="mono-val">{fmt(row.s6 || row['6a serie'] || 0)}</td>
+                      <td className="mono-val col-mat text-[15px] font-black">{fmt(row.total || row.vagas || 0)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* CONTROLES DA PAGINAÇÃO */}
+          <div className="pagination">
+            <span className="pag-info">
+              {!loading && (activeTab === 'base' ? totalRows : totalRowsProj) > 0 
+                ? `Exibindo ${(((activeTab === 'base' ? page : pageProj)-1)*perPage)+1}–${Math.min((activeTab === 'base' ? page : pageProj)*perPage, activeTab === 'base' ? totalRows : totalRowsProj)}` : ""}
+            </span>
+            <div className="pag-btns">
+              <button className="pag-btn" disabled={(activeTab === 'base' ? page : pageProj)===1} onClick={()=> activeTab === 'base' ? setPage(page-1) : setPageProj(pageProj-1)}><IcoChevL/></button>
+              {[...Array(activeTab === 'base' ? totalPages : totalPagesProj)].map((_,i) => (
+                <button key={i} className={`pag-btn ${(activeTab === 'base' ? page : pageProj)===i+1?'active':''}`} onClick={()=> activeTab === 'base' ? setPage(i+1) : setPageProj(i+1)}>{i+1}</button>
+              )).slice(Math.max(0, (activeTab === 'base' ? page : pageProj)-3), Math.min(activeTab === 'base' ? totalPages : totalPagesProj, (activeTab === 'base' ? page : pageProj)+2))}
+              <button className="pag-btn" disabled={(activeTab === 'base' ? page : pageProj)===(activeTab === 'base' ? totalPages : totalPagesProj)} onClick={()=> activeTab === 'base' ? setPage(page+1) : setPageProj(pageProj+1)}><IcoChevR/></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: SINGLE RECORD */}
+      {modal && (
+        <div className="modal-bg" onClick={e => e.target===e.currentTarget && setModal(false)}>
+          <div className="modal-box">
+            <div className="modal-head"><h2>{form._id ? "Editar Registro" : "Novo Registro"}</h2><button className="modal-close" onClick={()=>setModal(false)}><IcoClose/></button></div>
+            <div className="modal-body"><form id="p-form" onSubmit={save}>
+              <div className="form-section-title blue">Identificação</div>
+              <div className="form-grid cols4">
+                <div className="form-group"><label className="form-lbl">Código</label><input className="form-ctrl right" type="text" id="codigo" value={form.codigo} onChange={e=>setForm({...form, codigo: e.target.value})} /></div>
+                <div className="form-group span3"><label className="form-lbl">Curso <span className="req">*</span></label><input className="form-ctrl" required id="curso" value={form.curso} onChange={e=>setForm({...form, curso: e.target.value})} /></div>
+                <div className="form-group span2"><label className="form-lbl">Unidade</label><select className="form-ctrl" value={form.unidade} onChange={e=>setForm({...form, unidade: e.target.value})}><option value="">Selecione</option>{UNIDADES.map(u=><option key={u}>{u}</option>)}</select></div>
+                <div className="form-group"><label className="form-lbl">Ano</label><input className="form-ctrl right" type="number" value={form.ano} onChange={e=>setForm({...form, ano: e.target.value})} /></div>
+                <div className="form-group"><label className="form-lbl">Duração</label><input className="form-ctrl right" type="number" value={form.duracao} onChange={e=>setForm({...form, duracao: e.target.value})} /></div>
+                <div className="form-group"><label className="form-lbl">Grau</label><select className="form-ctrl" value={form.grau} onChange={e=>setForm({...form, grau: e.target.value})}>{GRAUS.map(g=><option key={g}>{g}</option>)}</select></div>
+                <div className="form-group"><label className="form-lbl">Turno</label><select className="form-ctrl" value={form.turno} onChange={e=>setForm({...form, turno: e.target.value})}>{TURNOS_OPTS.map(t=><option key={t}>{t}</option>)}</select></div>
+                <div className="form-group"><label className="form-lbl">Modalidade</label><select className="form-ctrl" value={form.modalidade} onChange={e=>setForm({...form, modalidade: e.target.value})}>{MODS.map(t=><option key={t}>{t}</option>)}</select></div>
+                <div className="form-group"><label className="form-lbl">Núcleo</label><select className="form-ctrl" value={form.nucleo} onChange={e=>setForm({...form, nucleo: e.target.value})}><option value="">Selecione</option>{NUCLEOS.map(t=><option key={t}>{t}</option>)}</select></div>
+                <div className="form-group span2"><label className="form-lbl">Situação</label><select className="form-ctrl" value={form.situacao} onChange={e=>setForm({...form, situacao: e.target.value})}>{SITUACOES.map(t=><option key={t}>{t}</option>)}</select></div>
+              </div>
+              <div className="form-section-title blue" style={{marginTop:24}}>Matrículas por Série</div>
+              <div className="form-grid grid-cols-6" style={{gridTemplateColumns:"repeat(6,1fr)"}}>
+                {[1,2,3,4,5,6].map(i=><div className="form-group" key={i}><label className="form-lbl">{i}ª Série</label><input className="form-ctrl right" type="number" value={form[`s${i}`]} onChange={e=>setForm({...form, [`s${i}`]: Number(e.target.value)})} /></div>)}
+              </div>
+              <div className="form-section-title amber" style={{marginTop:24}}>Ingresso</div>
+              <div className="form-grid cols4">
+                {[["Vestibular","vest"],["SISU","sisu"],["PSS","pss"],["Outros","outros"]].map(([l,k])=><div className="form-group" key={k}><label className="form-lbl">{l}</label><input className="form-ctrl right" type="number" value={form[k]} onChange={e=>setForm({...form, [k]: Number(e.target.value)})} /></div>)}
+              </div>
+              <div className="totals-box">
+                <div className="total-item"><div className="total-item-lbl green">Ingressantes <span className="auto-tag green">Auto</span></div><div className="total-val ingr">{fmt(form.ingressantes)}</div></div>
+                <div className="total-item"><div className="total-item-lbl mat">Matriculados <span className="auto-tag blue">Auto</span></div><div className="total-val mat">{fmt(form.matriculados)}</div></div>
+                <div className="total-item"><div className="total-item-lbl concl">Concluintes</div><div className="total-val concl"><input type="number" value={form.concluintes} onChange={e=>setForm({...form, concluintes: Number(e.target.value)})} /></div></div>
+              </div>
+            </form></div>
+            <div className="modal-foot"><button className="btn btn-white" onClick={()=>setModal(false)}>Cancelar</button><button type="submit" form="p-form" className="btn btn-green" disabled={saving}>{saving ? <IcoSpinner/> : <IcoCheck/>} Salvar no Banco</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BATCH IMPORT */}
+      {importModal && (
+        <div className="modal-bg" onClick={e => e.target===e.currentTarget && importStep!==3 && setImportModal(false)}>
+          <div className="modal-box" style={{maxWidth:800}}>
+            <div className="modal-head"><h2>Importação Lote (Batch Save)</h2>{importStep!==3 && <button className="modal-close" onClick={()=>setImportModal(false)}><IcoClose/></button>}</div>
+            <div className="modal-body">
+              {importStep===1 && <div className="space-y-6">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl" style={{background:'#EFF6FF', padding:'16px', borderRadius:'12px', border:'1px solid #BFDBFE', marginBottom:'20px'}}>
+                  <h3 style={{fontSize:'12px', fontWeight:800, color:'var(--navy)', marginBottom:'8px', textTransform:'uppercase'}}>1. Baixe o Modelo</h3>
+                  <button className="btn btn-navy" onClick={()=>downloadTemplate()}><IcoDownload/> Baixar Modelo</button>
+                </div>
+                <div className="p-4 border border-slate-200 rounded-xl" style={{padding:'16px', borderRadius:'12px', border:'1px solid var(--border)'}}>
+                  <h3 style={{fontSize:'12px', fontWeight:800, color:'var(--navy)', marginBottom:'8px', textTransform:'uppercase'}}>2. Upload do CSV</h3>
+                  <label className="import-box" style={{display:'block'}}><IcoUpload/><p>Selecione o arquivo <strong>CSV</strong>.</p><input type="file" accept=".csv" className="import-file-input" onChange={handleFileUpload}/></label>
+                </div>
+              </div>}
+              {importStep===2 && <div><h3 className="font-bold mb-2">Revisão para Batch ({parsedRecords.length} linhas)</h3><div style={{maxHeight:'350px', overflowY:'auto', border:'1px solid var(--border)', borderRadius:'8px'}}><table className="preview-table"><thead><tr><th>Status</th><th>Curso</th><th>Unidade</th><th>Mat.</th></tr></thead><tbody>{parsedRecords.map((r,i)=><tr key={i} className={r._status}><td><span className={`status-tag ${r._status}`}>Batch</span></td><td style={{fontWeight:600}}>{r.curso}</td><td>{r.unidade}</td><td>{r.matriculados}</td></tr>)}</tbody></table></div></div>}
+              {importStep===3 && <div style={{textAlign:'center', padding:'40px 20px'}}><IcoSpinner size={40} className="spin-large"/><h3 style={{fontSize:'18px', fontWeight:800, color:'var(--navy)', margin:'16px 0 8px'}}>Enviando lote ao servidor...</h3><div className="progress-container"><div className="progress-bar" style={{width:'100%'}}></div></div><p style={{fontSize:'11px', fontWeight:700, color:'var(--navy2)', marginTop:'8px'}}>{importProgress.total} registros</p></div>}
+            </div>
+            <div className="modal-foot">{importStep===1 && <button className="btn btn-white" onClick={()=>setImportModal(false)}>Cancelar</button>}{importStep===2 && <><button className="btn btn-white" onClick={()=>setImportStep(1)}>Voltar</button><button className="btn btn-green" onClick={processBatchImport}><IcoCheck/> Iniciar</button></>}</div>
+          </div>
+        </div>
+      )}
+      {toast && <div className={`toast ${toast.type}`}>{toast.type === "success" ? <IcoCheck/> : <IcoClose/>} {toast.msg}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
