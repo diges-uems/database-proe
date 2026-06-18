@@ -5,20 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PROE · Base de Dados UEMS</title>
 
-<!-- 
-  ======================================================================
-  ATENÇÃO: AMBIENTE DE BUILD REQUERIDO (VITE, WEBPACK, NEXT.JS)
-  ======================================================================
-  Para rodar este código em produção de forma otimizada (sem CDN), 
-  remova as 4 tags <script> abaixo e configure um bundler:
-  1. Instale as dependências: npm install react react-dom lucide-react
-  2. Configure o Tailwind: npm install -D tailwindcss postcss autoprefixer
-  3. Mova o conteúdo da tag <script type="text/babel"> para um arquivo App.jsx
-  ======================================================================
--->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Babel para transpilar JSX direto no navegador -->
+<script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
+<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -214,7 +205,10 @@ tbody tr:hover .row-actions{opacity:1}
 <body>
 <div id="root"></div>
 
-<script type="text/babel">
+<script type="text/babel" data-presets="react">
+/** @jsx React.createElement */
+/** @jsxFrag React.Fragment */
+
 const { useState, useEffect, useCallback, useMemo } = React;
 
 const API = "https://script.google.com/macros/s/AKfycbxYRhUlLiZDaFUmpsVo-Wso4iMDx_V1tg6k6yyemVOw45ISbx3iq0kybY6N36hzDDtKhw/exec";
@@ -432,6 +426,14 @@ function App() {
   const { totalPages = 1, totalRows = 0, stats = {} } = meta;
   
   const memoizedRows = useMemo(() => rows, [rows]);
+  
+  const cursosUnicos = useMemo(() => {
+      const set = new Set();
+      if (dataCache && dataCache.data) {
+          dataCache.data.forEach(r => { if (r.curso) set.add(r.curso.trim()); });
+      }
+      return Array.from(set).sort();
+  }, [dataCache]);
   
   const filteredProj = useMemo(() => {
     return (rowsProj || [])
@@ -901,7 +903,16 @@ function App() {
               <div className="form-section-title blue">Identificação</div>
               <div className="form-grid cols4">
                 <div className="form-group"><label className="form-lbl">Código</label><input className="form-ctrl right" type="text" id="codigo" value={form.codigo} onChange={e=>setForm({...form, codigo: e.target.value})} /></div>
-                <div className="form-group span3"><label className="form-lbl">Curso <span className="req">*</span></label><input className="form-ctrl" required id="curso" value={form.curso} onChange={e=>setForm({...form, curso: e.target.value})} /></div>
+                
+                {/* DATALIST DE CURSOS IMPLEMENTADO AQUI */}
+                <div className="form-group span3">
+                  <label className="form-lbl">Curso <span className="req">*</span></label>
+                  <input className="form-ctrl" required id="curso" list="cursos-list" value={form.curso} onChange={e=>setForm({...form, curso: e.target.value})} />
+                  <datalist id="cursos-list">
+                    {cursosUnicos.map(c => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
+                
                 <div className="form-group span2"><label className="form-lbl">Unidade</label><select className="form-ctrl" value={form.unidade} onChange={e=>setForm({...form, unidade: e.target.value})}><option value="">Selecione</option>{UNIDADES.map(u=><option key={u}>{u}</option>)}</select></div>
                 <div className="form-group"><label className="form-lbl">Ano</label><input className="form-ctrl right" type="number" value={form.ano} onChange={e=>setForm({...form, ano: e.target.value})} /></div>
                 <div className="form-group"><label className="form-lbl">Duração</label><input className="form-ctrl right" type="number" value={form.duracao} onChange={e=>setForm({...form, duracao: e.target.value})} /></div>
