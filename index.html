@@ -482,9 +482,44 @@ function App() {
     });
     return idx;
   }, [rowsProj]);
-  
-  useEffect(() => { 
-    if (pageProj > totalPagesProj && totalPagesProj > 0) setPageProj(totalPagesProj); 
+
+  // Pré-calcula vagas ociosas por linha uma única vez por dado novo,
+  // em vez de refazer a normalização/filtro/soma pra todas as linhas
+  // toda vez que o usuário só expande/recolhe uma linha (clique ficava
+  // lento porque essa conta rodava de novo pra tabela inteira).
+  const vagasOciosasPorLinha = useMemo(() => {
+    const map = new Map();
+    memoizedRows.forEach(row => {
+      const cCurso = String(row.curso).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+      const cUnidade = String(row.unidade).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+      const cTurno = String(row.turno || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+
+      const candidateProj = projIndex.get(`${Number(row.ano)}|${cUnidade}`) || [];
+      const pMatches = candidateProj.filter(p => {
+        const pTurno = String(p.turno || p.periodo || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+        if (pTurno && cTurno && pTurno !== "nao informado" && cTurno !== "nao informado") {
+          if (!pTurno.includes(cTurno) && !cTurno.includes(pTurno)) return false;
+        }
+        const pCurso = String(p.curso || p['nome do curso'] || p.programa || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+        return pCurso === cCurso || pCurso.includes(cCurso) || cCurso.includes(pCurso);
+      });
+
+      let vagasOciosas = "—";
+      if (pMatches.length > 0) {
+        const vagas = pMatches.reduce((acc, p) => acc + (Number(p.total || p.vagas || p['total vagas'] || p['total de vagas']) || 0), 0);
+        vagasOciosas = vagas - n(row.matriculados);
+      }
+      const ociosasColor = vagasOciosas !== "—"
+        ? (vagasOciosas > 0 ? "bg-emerald-100 text-emerald-700" : (vagasOciosas < 0 ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"))
+        : "text-slate-500";
+
+      map.set(row._id, { vagasOciosas, ociosasColor });
+    });
+    return map;
+  }, [memoizedRows, projIndex]);
+
+  useEffect(() => {
+    if (pageProj > totalPagesProj && totalPagesProj > 0) setPageProj(totalPagesProj);
   }, [pageProj, totalPagesProj]);
   
   const paginatedProj = useMemo(() => {
@@ -1150,31 +1185,7 @@ ${folhas}
                 {activeTab === 'base' && memoizedRows.map(row => {
                   const isOpen = expanded.has(row._id);
                   const codigoLimpo = row.codigo ? String(row.codigo).split('_')[0] : "—";
-                  
-                  let vagasOciosas = "—";
-                  const cCurso = String(row.curso).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                  const cUnidade = String(row.unidade).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                  const cTurno = String(row.turno || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                  
-                  const candidateProj = projIndex.get(`${Number(row.ano)}|${cUnidade}`) || [];
-                  const pMatches = candidateProj.filter(p => {
-                     const pTurno = String(p.turno || p.periodo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                     if (pTurno && cTurno && pTurno !== "nao informado" && cTurno !== "nao informado") {
-                         if (!pTurno.includes(cTurno) && !cTurno.includes(pTurno)) return false;
-                     }
-                     
-                     const pCurso = String(p.curso || p['nome do curso'] || p.programa || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                     return pCurso === cCurso || pCurso.includes(cCurso) || cCurso.includes(pCurso);
-                  });
-
-                  if (pMatches.length > 0) {
-                      const vagas = pMatches.reduce((acc, p) => acc + (Number(p.total || p.vagas || p['total vagas'] || p['total de vagas']) || 0), 0);
-                      vagasOciosas = vagas - n(row.matriculados);
-                  }
-
-                  const ociosasColor = vagasOciosas !== "—" 
-                      ? (vagasOciosas > 0 ? "bg-emerald-100 text-emerald-700" : (vagasOciosas < 0 ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600")) 
-                      : "text-slate-500";
+                  const { vagasOciosas, ociosasColor } = vagasOciosasPorLinha.get(row._id) || { vagasOciosas: "—", ociosasColor: "text-slate-500" };
 
                   return (
                     <React.Fragment key={row._id}>
