@@ -711,6 +711,17 @@ function App() {
             <td class="p-2 text-right font-mono font-bold">${escapeHtml(fmt(r.matriculados))}</td>
           </tr>`).join("");
 
+    const historicoComIngresso = historico.filter(r => n(r.vest) + n(r.sisu) + n(r.pss) + n(r.outros) > 0);
+    const linhasIngresso = historicoComIngresso.map(r => `
+          <tr class="border-b border-gray-100">
+            <td class="p-2 text-left font-semibold">${escapeHtml(fmtAno(r.ano))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.vest))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.sisu))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.pss))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.outros))}</td>
+            <td class="p-2 text-right font-mono font-bold">${escapeHtml(fmt(r.ingressantes))}</td>
+          </tr>`).join("");
+
     const protocolo = `PROE/${new Date().getFullYear()}/${String(curso).slice(0, 3).toUpperCase()}-${String(unidade).slice(0, 3).toUpperCase()}`;
 
     return `
@@ -794,9 +805,29 @@ function App() {
         </div>
       </section>
 
+      ${historicoComIngresso.length ? `
+      <section class="mb-4">
+        <h3 class="font-serif uems-blue-text text-base font-bold border-b border-gray-200 pb-1 mb-4">5. Modalidade de Ingresso (Evolução Anual)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border-collapse border border-blue-900">
+            <thead>
+              <tr class="bg-uems-blue-header text-white font-sans font-semibold">
+                <th class="p-2 text-left border-b border-blue-900 text-[11px] uppercase tracking-wide">Ano</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">Vestibular</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">SISU</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">PSS</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">Outros</th>
+                <th class="p-2 text-right border-b border-blue-900 text-[11px] uppercase tracking-wide">Total</th>
+              </tr>
+            </thead>
+            <tbody>${linhasIngresso}</tbody>
+          </table>
+        </div>
+      </section>` : ""}
+
       ${historicoComSerie.length ? `
       <section class="mb-4">
-        <h3 class="font-serif uems-blue-text text-base font-bold border-b border-gray-200 pb-1 mb-4">5. Matrículas por Série (Evolução Anual)</h3>
+        <h3 class="font-serif uems-blue-text text-base font-bold border-b border-gray-200 pb-1 mb-4">6. Matrículas por Série (Evolução Anual)</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-sm border-collapse border border-blue-900">
             <thead>
@@ -881,6 +912,11 @@ table{border-collapse:collapse;width:100%}
   .no-print{display:none !important}
   .page-break{page-break-after:always}
   .break-inside-avoid,tr,td,th{page-break-inside:avoid !important;break-inside:avoid !important}
+  /* border-collapse funde as bordas das células e some com a borda externa
+     da tabela nas páginas intermediárias quando ela quebra entre páginas —
+     dá exatamente a sensação de "cortou". Com separate a tabela mantém a
+     borda fechada em toda página onde aparece um fragmento dela. */
+  table{border-collapse:separate;border-spacing:0}
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
 }
 </style>
