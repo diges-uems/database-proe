@@ -295,6 +295,9 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
+  const [selectedCursos, setSelectedCursos] = useState(new Set());
+  const [generatingReport, setGeneratingReport] = useState(false);
+
   const [dataCache, setDataCache] = useState({ data: [], projecoes: [], meta: {} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -459,6 +462,19 @@ function App() {
 
   const totalRowsProj = filteredProj.length;
   const totalPagesProj = Math.max(1, Math.ceil(totalRowsProj / perPage));
+
+  // Índice ano+unidade -> projeções, evita varrer todas as projeções por linha da base
+  const projIndex = useMemo(() => {
+    const idx = new Map();
+    (rowsProj || []).forEach(p => {
+      const pAno = p.ano || p['ano letivo'] || p.anobase;
+      const pUnidade = String(p.unidade || p['unidade universitaria'] || p.campus || p.uu || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+      const key = `${Number(pAno)}|${pUnidade}`;
+      if (!idx.has(key)) idx.set(key, []);
+      idx.get(key).push(p);
+    });
+    return idx;
+  }, [rowsProj]);
   
   useEffect(() => { 
     if (pageProj > totalPagesProj && totalPagesProj > 0) setPageProj(totalPagesProj); 
@@ -583,6 +599,230 @@ function App() {
     reader.readAsText(file, 'ISO-8859-1');
   };
 
+  const toggleCurso = (curso) => {
+    setSelectedCursos(s => {
+      const n = new Set(s);
+      n.has(curso) ? n.delete(curso) : n.add(curso);
+      return n;
+    });
+  };
+
+  const escapeHtml = (str) => String(str ?? "—").replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
+  const situacaoBadgeCls = (sit) => sit === 'Em Atividade' ? 'bg-emerald-100 text-emerald-700' : sit === 'Extinto' ? 'bg-red-100 text-red-700' : sit === 'Em Extinção' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
+
+  const buildCursoFolha = (curso, historico, isLast) => {
+    const atual = historico[historico.length - 1] || {};
+    const linhasHistorico = historico.length
+      ? historico.map(r => `
+          <tr class="border-b border-gray-100">
+            <td class="p-2 text-left font-semibold">${escapeHtml(fmtAno(r.ano))}</td>
+            <td class="p-2 text-left">${escapeHtml(r.unidade)}</td>
+            <td class="p-2 text-left">${escapeHtml(r.grau)}</td>
+            <td class="p-2 text-left">${escapeHtml(r.turno)}</td>
+            <td class="p-2 text-left">${escapeHtml(r.situacao)}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.ingressantes))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.matriculados))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.concluintes))}</td>
+            <td class="p-2 text-right font-mono">${escapeHtml(r.evasao)}</td>
+          </tr>`).join("")
+      : `<tr><td colSpan="9" class="p-4 text-center text-gray-400">Sem dados históricos encontrados</td></tr>`;
+
+    const historicoComSerie = historico.filter(r => n(r.s1) + n(r.s2) + n(r.s3) + n(r.s4) + n(r.s5) + n(r.s6) > 0);
+    const linhasSerie = historicoComSerie.map(r => `
+          <tr class="border-b border-gray-100">
+            <td class="p-2 text-left font-semibold">${escapeHtml(fmtAno(r.ano))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.s1))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.s2))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.s3))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.s4))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.s5))}</td>
+            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.s6))}</td>
+            <td class="p-2 text-right font-mono font-bold">${escapeHtml(fmt(r.matriculados))}</td>
+          </tr>`).join("");
+
+    return `
+    <div class="folha-a4 text-gray-800${isLast ? "" : " page-break"}">
+      <div class="text-center mb-8">
+        <div class="mb-4 flex justify-center">
+          <img src="https://www.uems.br/anexos/imagens/conteudo/uems_imagens_2025-06-13_13-31-53.png" alt="Logo UEMS" class="h-24 mx-auto" />
+        </div>
+        <h1 class="uems-blue-text text-xl font-bold uppercase tracking-tight">Pró-Reitoria de Ensino · UEMS</h1>
+        <h2 class="text-lg font-semibold uppercase">Relatório Histórico de Curso — PROE</h2>
+        <p class="text-sm text-gray-500">Data de Emissão: ${escapeHtml(new Date().toLocaleDateString("pt-BR"))}</p>
+      </div>
+
+      <section class="mb-8">
+        <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-3 uppercase tracking-wide">1. Identificação do Curso</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <p><strong>Curso:</strong> ${escapeHtml(curso)} ${atual.grau ? `(${escapeHtml(atual.grau)})` : ""}</p>
+          <p><strong>Unidade Universitária (mais recente):</strong> ${escapeHtml(atual.unidade)}</p>
+          <p><strong>Código:</strong> ${escapeHtml(atual.codigo ? String(atual.codigo).split('_')[0] : "—")}</p>
+        </div>
+      </section>
+
+      <section class="mb-8 break-inside-avoid">
+        <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-3 uppercase tracking-wide">2. Situação Atual (${escapeHtml(fmtAno(atual.ano) || "—")})</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr class="bg-uems-blue-header text-white font-semibold">
+                <th class="p-3 border-b border-blue-900">Ingressantes</th>
+                <th class="p-3 border-b border-blue-900 text-center">Matriculados</th>
+                <th class="p-3 border-b border-blue-900 text-center">Concluintes</th>
+                <th class="p-3 border-b border-blue-900 text-center">Evasão</th>
+                <th class="p-3 border-b border-blue-900 text-right">Situação</th>
+              </tr>
+            </thead>
+            <tbody class="table-zebra">
+              <tr class="border-b border-gray-100">
+                <td class="p-3 font-mono font-semibold">${escapeHtml(fmt(atual.ingressantes))}</td>
+                <td class="p-3 font-mono text-center">${escapeHtml(fmt(atual.matriculados))}</td>
+                <td class="p-3 font-mono text-center">${escapeHtml(fmt(atual.concluintes))}</td>
+                <td class="p-3 font-mono text-center">${escapeHtml(atual.evasao)}</td>
+                <td class="p-3 text-right"><span class="px-2 py-1 rounded text-xs font-bold ${situacaoBadgeCls(atual.situacao)}">${escapeHtml(atual.situacao)}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="mb-8 bg-gray-50 p-6 rounded-lg border border-gray-200 break-inside-avoid">
+        <h3 class="text-md font-bold mb-3 uppercase tracking-wide">3. Como os Indicadores são Calculados</h3>
+        <ul class="text-sm space-y-2 text-gray-600">
+          <li><strong>Ingressantes:</strong> soma de Vestibular, SISU, PSS e Outros no ano.</li>
+          <li><strong>Matriculados:</strong> soma dos alunos matriculados da 1ª à 6ª série no ano.</li>
+          <li><strong>Evasão:</strong> calculada pelo servidor comparando a base de matriculados do ano anterior (descontados os concluintes) com a variação líquida do ano atual.</li>
+        </ul>
+      </section>
+
+      <section class="mb-4 break-inside-avoid">
+        <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-4 uppercase tracking-wide">4. Histórico Detalhado (2018–2030)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border-collapse border border-gray-200">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="p-2 text-left border-b border-gray-300">Ano</th>
+                <th class="p-2 text-left border-b border-gray-300">Unidade</th>
+                <th class="p-2 text-left border-b border-gray-300">Grau</th>
+                <th class="p-2 text-left border-b border-gray-300">Turno</th>
+                <th class="p-2 text-left border-b border-gray-300">Situação</th>
+                <th class="p-2 text-center border-b border-gray-300">Ingr.</th>
+                <th class="p-2 text-center border-b border-gray-300">Mat.</th>
+                <th class="p-2 text-center border-b border-gray-300">Concl.</th>
+                <th class="p-2 text-right border-b border-gray-300">Evasão</th>
+              </tr>
+            </thead>
+            <tbody>${linhasHistorico}</tbody>
+          </table>
+        </div>
+      </section>
+
+      ${historicoComSerie.length ? `
+      <section class="mb-4 break-inside-avoid">
+        <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-4 uppercase tracking-wide">5. Matrículas por Série (Evolução Anual)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border-collapse border border-gray-200">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="p-2 text-left border-b border-gray-300">Ano</th>
+                <th class="p-2 text-center border-b border-gray-300">1ª</th>
+                <th class="p-2 text-center border-b border-gray-300">2ª</th>
+                <th class="p-2 text-center border-b border-gray-300">3ª</th>
+                <th class="p-2 text-center border-b border-gray-300">4ª</th>
+                <th class="p-2 text-center border-b border-gray-300">5ª</th>
+                <th class="p-2 text-center border-b border-gray-300">6ª</th>
+                <th class="p-2 text-right border-b border-gray-300">Total</th>
+              </tr>
+            </thead>
+            <tbody>${linhasSerie}</tbody>
+          </table>
+        </div>
+      </section>` : ""}
+
+      <footer class="mt-8 pt-4 border-t border-gray-200 text-center text-[10px] text-gray-400 italic">
+        <p>Documento gerado automaticamente pelo Portal PROE — Base de Dados UEMS.</p>
+      </footer>
+    </div>`;
+  };
+
+  const generateReport = async () => {
+    if (selectedCursos.size === 0) return;
+
+    // Abrir a janela SINCRONAMENTE (antes de qualquer await) para preservar
+    // o "user gesture" do clique — abrir depois de um await é bloqueado por
+    // bloqueadores de pop-up em navegadores reais (Chrome, Safari, Firefox).
+    const reportWindow = window.open("", "_blank");
+    if (!reportWindow) { showToast("Pop-up bloqueado. Permita pop-ups para gerar o relatório.", "error"); return; }
+    const openBlobDoc = (html) => {
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      reportWindow.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
+    openBlobDoc(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Histórico UEMS</title></head><body style="font-family:sans-serif;padding:40px;color:#475569"><p>Carregando histórico e montando relatório...</p></body></html>`);
+
+    setGeneratingReport(true);
+    try {
+      const cursosArr = Array.from(selectedCursos);
+      const results = await Promise.all(cursosArr.map(curso => {
+        const params = new URLSearchParams({ page: 1, perPage: 500, search: curso });
+        return fetch(`${API}?${params.toString()}`)
+          .then(async r => { if (!r.ok) throw new Error("Falha ao buscar histórico de " + curso); return safeParseJSON(r); });
+      }));
+
+      const folhas = cursosArr.map((curso, idx) => {
+        const res = results[idx];
+        const historico = res.error ? [] : (res.data || [])
+          .filter(r => r.curso === curso)
+          .sort((a, b) => Number(a.ano) - Number(b.ano));
+        return buildCursoFolha(curso, historico, idx === cursosArr.length - 1);
+      }).join("");
+
+      openBlobDoc(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Relatório Histórico UEMS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"><\/script>
+<script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','sans-serif'] }, colors: { 'uems-blue': '#003366' } } } }<\/script>
+<style>
+body{font-family:'Inter',sans-serif;background-color:#f1f5f9}
+.uems-blue-text{color:#003366}
+.bg-uems-blue-header{background-color:#003366}
+.table-zebra tr:nth-child(even){background-color:#f9fafb}
+table{border-collapse:collapse;width:100%}
+.folha-a4{background:#fff;max-width:21cm;margin:2rem auto;padding:1.5cm;box-shadow:0 10px 25px rgba(0,0,0,.1);border-radius:8px}
+@media print{
+  @page{margin:0;size:A4 portrait}
+  body{background-color:#fff !important;margin:0;padding:0}
+  .folha-a4{max-width:100%;margin:0;padding:1.5cm;box-shadow:none;border-radius:0}
+  .no-print{display:none !important}
+  .page-break{page-break-after:always}
+  .break-inside-avoid,table,tr,td,th{page-break-inside:avoid !important;break-inside:avoid !important}
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+}
+</style>
+</head>
+<body>
+<div class="text-center mt-8 no-print">
+  <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg">Imprimir / Salvar como PDF</button>
+</div>
+${folhas}
+</body>
+</html>`);
+
+      showToast(`Relatório gerado para ${cursosArr.length} curso(s)!`);
+    } catch (err) {
+      openBlobDoc(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Erro no Relatório</title></head><body style="font-family:sans-serif;padding:40px;color:#B91C1C"><p><strong>Erro ao gerar relatório:</strong> ${String(err.message).replace(/[<>&]/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[ch]))}</p></body></html>`);
+      showToast(err.message, "error");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
   const downloadTemplate = () => {
     const header = "Código do Curso;Nome do Curso;Unidade;Ano Letivo;Duração (anos);Grau;Turno;Modalidade;Núcleo;Situação;Série 1;Série 2;Série 3;Série 4;Série 5;Série 6;Ingressantes Vestibular;Ingressantes SISU;Ingressantes PSS;Ingressantes Outros;Concluintes;Evasao\n";
     const sample = "1681113;Silvicultura;Água Clara;2025;2;Tecnológico;Noturno;Presencial;;Em Atividade;40;40;0;0;0;0;10;20;5;5;15;0\n";
@@ -619,6 +859,9 @@ function App() {
               </button>
               <button className="btn btn-navy" onClick={() => { setImportStep(1); setImportModal(true); }}>
                 <IcoUpload/> Importar Lote
+              </button>
+              <button className="btn btn-navy" onClick={generateReport} disabled={selectedCursos.size === 0 || generatingReport} title={selectedCursos.size === 0 ? "Selecione cursos na tabela para gerar relatório" : ""}>
+                {generatingReport ? <IcoSpinner/> : <IcoDownload/>} Relatório PDF{selectedCursos.size > 0 ? ` (${selectedCursos.size})` : ""}
               </button>
               <button className="btn btn-green" onClick={() => openModal()}>
                 <IcoPlus/> Novo Registro
@@ -680,6 +923,15 @@ function App() {
             })}
             
             <div className="filter-right">
+              {activeTab === 'base' && selectedCursos.size > 0 && (
+                <div className="filter-group">
+                  <span className="filter-lbl">&nbsp;</span>
+                  <button className="btn btn-white" style={{color: 'var(--navy2)', gap: '4px'}} onClick={() => setSelectedCursos(new Set())} title="Limpar seleção de cursos para relatório">
+                    <IcoClose /> {selectedCursos.size} curso(s) selecionado(s)
+                  </button>
+                </div>
+              )}
+
               {/* BOTÃO LIMPAR FILTROS */}
               {(searchTerm || filters.ano || filters.unidade || filters.nucleo || filters.grau || filters.situacao) && (
                 <div className="filter-group">
@@ -716,6 +968,7 @@ function App() {
               <thead>
                 {activeTab === 'base' ? (
                   <tr>
+                    <th style={{width:32}} title="Selecionar para Relatório PDF"><IcoDownload/></th>
                     <th style={{width:36}}></th>
                     <th>Código</th>
                     <th style={{minWidth:200}}>Curso</th>
@@ -752,7 +1005,7 @@ function App() {
                 {/* EMPTY STATES */}
                 {activeTab === 'base' && !loading && memoizedRows.length === 0 && (
                   <tr>
-                    <td colSpan={13}>
+                    <td colSpan={14}>
                       <div className="empty">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                         <p>{error ? "Erro no Servidor" : "Nenhum registro encontrado"}</p>
@@ -785,13 +1038,8 @@ function App() {
                   const cUnidade = String(row.unidade).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
                   const cTurno = String(row.turno || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
                   
-                  const pMatches = (rowsProj || []).filter(p => {
-                     const pAno = p.ano || p['ano letivo'] || p.anobase;
-                     if (Number(pAno) !== Number(row.ano)) return false;
-                     
-                     const pUnidade = String(p.unidade || p['unidade universitaria'] || p.campus || p.uu || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                     if (pUnidade !== cUnidade) return false;
-                     
+                  const candidateProj = projIndex.get(`${Number(row.ano)}|${cUnidade}`) || [];
+                  const pMatches = candidateProj.filter(p => {
                      const pTurno = String(p.turno || p.periodo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
                      if (pTurno && cTurno && pTurno !== "nao informado" && cTurno !== "nao informado") {
                          if (!pTurno.includes(cTurno) && !cTurno.includes(pTurno)) return false;
@@ -813,7 +1061,8 @@ function App() {
                   return (
                     <React.Fragment key={row._id}>
                       <tr className={isOpen ? "expanded" : ""}>
-                        <td style={{paddingLeft:12}}><button className={`expand-btn${isOpen?" open":""}`} onClick={() => toggleExpand(row._id)}>{isOpen ? <IcoChevD/> : <IcoChevR/>}</button></td>
+                        <td style={{paddingLeft:12}}><input type="checkbox" checked={selectedCursos.has(row.curso)} onChange={() => toggleCurso(row.curso)} title={`Incluir "${row.curso}" no relatório`} /></td>
+                        <td><button className={`expand-btn${isOpen?" open":""}`} onClick={() => toggleExpand(row._id)}>{isOpen ? <IcoChevD/> : <IcoChevR/>}</button></td>
                         <td><span className="td-code">{codigoLimpo}</span></td>
                         <td><span className="td-curso">{row.curso}</span></td>
                         <td><span className="td-unidade">{row.unidade}</span></td>
@@ -832,7 +1081,7 @@ function App() {
                         <td><div className="row-actions"><button className="btn btn-edit" onClick={() => openModal(row)}>Editar</button></div></td>
                       </tr>
                       {isOpen && (
-                        <tr><td colSpan={13} className="expand-row"><div className="expand-content">
+                        <tr><td colSpan={14} className="expand-row"><div className="expand-content">
                           <div className="expand-card"><div className="expand-card-title">Matrículas por Série</div><div className="series-grid">
                             {[1,2,3,4,5,6].map(i => <div className="series-cell" key={i}><span>{i}ª</span><strong>{fmt(row[`s${i}`])}</strong></div>)}
                           </div></div>
