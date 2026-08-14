@@ -692,11 +692,11 @@ function App() {
         <ul class="text-sm space-y-2 text-gray-600">
           <li><strong>Ingressantes:</strong> soma de Vestibular, SISU, PSS e Outros no ano.</li>
           <li><strong>Matriculados:</strong> soma dos alunos matriculados da 1ª à 6ª série no ano.</li>
-          <li><strong>Evasão:</strong> calculada pelo servidor comparando a base de matriculados do ano anterior (descontados os concluintes) com a variação líquida do ano atual.</li>
+          <li><strong>Evasão:</strong> percentual de alunos que saíram do curso sem concluir. É calculada comparando os matriculados do ano anterior (já descontados os concluintes daquele ano) com os matriculados que efetivamente permaneceram no ano atual.</li>
         </ul>
       </section>
 
-      <section class="mb-4 break-inside-avoid">
+      <section class="mb-4">
         <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-4 uppercase tracking-wide">4. Histórico Detalhado (2018–2030)</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-sm border-collapse border border-gray-200">
@@ -719,7 +719,7 @@ function App() {
       </section>
 
       ${historicoComSerie.length ? `
-      <section class="mb-4 break-inside-avoid">
+      <section class="mb-4">
         <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-4 uppercase tracking-wide">5. Matrículas por Série (Evolução Anual)</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-sm border-collapse border border-gray-200">
@@ -801,7 +801,7 @@ table{border-collapse:collapse;width:100%}
   .folha-a4{max-width:100%;margin:0;padding:1.5cm;box-shadow:none;border-radius:0}
   .no-print{display:none !important}
   .page-break{page-break-after:always}
-  .break-inside-avoid,table,tr,td,th{page-break-inside:avoid !important;break-inside:avoid !important}
+  .break-inside-avoid,tr,td,th{page-break-inside:avoid !important;break-inside:avoid !important}
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
 }
 </style>
