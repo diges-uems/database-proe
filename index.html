@@ -599,10 +599,13 @@ function App() {
     reader.readAsText(file, 'ISO-8859-1');
   };
 
-  const toggleCurso = (curso) => {
+  const ofertaKey = (curso, unidade) => `${curso}|||${unidade}`;
+
+  const toggleCurso = (curso, unidade) => {
+    const key = ofertaKey(curso, unidade);
     setSelectedCursos(s => {
       const n = new Set(s);
-      n.has(curso) ? n.delete(curso) : n.add(curso);
+      n.has(key) ? n.delete(key) : n.add(key);
       return n;
     });
   };
@@ -611,7 +614,7 @@ function App() {
 
   const situacaoBadgeCls = (sit) => sit === 'Em Atividade' ? 'bg-emerald-100 text-emerald-700' : sit === 'Extinto' ? 'bg-red-100 text-red-700' : sit === 'Em Extinção' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
 
-  const buildCursoFolha = (curso, historico, isLast) => {
+  const buildCursoFolha = (curso, unidade, historico, isLast) => {
     const atual = historico[historico.length - 1] || {};
     const linhasHistorico = historico.length
       ? historico.map(r => `
@@ -654,7 +657,7 @@ function App() {
         <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-3 uppercase tracking-wide">1. Identificação do Curso</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <p><strong>Curso:</strong> ${escapeHtml(curso)} ${atual.grau ? `(${escapeHtml(atual.grau)})` : ""}</p>
-          <p><strong>Unidade Universitária (mais recente):</strong> ${escapeHtml(atual.unidade)}</p>
+          <p><strong>Unidade Universitária:</strong> ${escapeHtml(unidade)}</p>
           <p><strong>Código:</strong> ${escapeHtml(atual.codigo ? String(atual.codigo).split('_')[0] : "—")}</p>
         </div>
       </section>
@@ -761,19 +764,22 @@ function App() {
 
     setGeneratingReport(true);
     try {
-      const cursosArr = Array.from(selectedCursos);
-      const results = await Promise.all(cursosArr.map(curso => {
-        const params = new URLSearchParams({ page: 1, perPage: 500, search: curso });
+      const ofertasArr = Array.from(selectedCursos).map(key => {
+        const [curso, unidade] = key.split("|||");
+        return { curso, unidade };
+      });
+      const results = await Promise.all(ofertasArr.map(({ curso, unidade }) => {
+        const params = new URLSearchParams({ page: 1, perPage: 500, search: curso, unidade });
         return fetch(`${API}?${params.toString()}`)
           .then(async r => { if (!r.ok) throw new Error("Falha ao buscar histórico de " + curso); return safeParseJSON(r); });
       }));
 
-      const folhas = cursosArr.map((curso, idx) => {
+      const folhas = ofertasArr.map(({ curso, unidade }, idx) => {
         const res = results[idx];
         const historico = res.error ? [] : (res.data || [])
-          .filter(r => r.curso === curso)
+          .filter(r => r.curso === curso && r.unidade === unidade)
           .sort((a, b) => Number(a.ano) - Number(b.ano));
-        return buildCursoFolha(curso, historico, idx === cursosArr.length - 1);
+        return buildCursoFolha(curso, unidade, historico, idx === ofertasArr.length - 1);
       }).join("");
 
       openBlobDoc(`<!DOCTYPE html>
@@ -812,7 +818,7 @@ ${folhas}
 </body>
 </html>`);
 
-      showToast(`Relatório gerado para ${cursosArr.length} curso(s)!`);
+      showToast(`Relatório gerado para ${ofertasArr.length} oferta(s)!`);
     } catch (err) {
       openBlobDoc(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Erro no Relatório</title></head><body style="font-family:sans-serif;padding:40px;color:#B91C1C"><p><strong>Erro ao gerar relatório:</strong> ${String(err.message).replace(/[<>&]/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[ch]))}</p></body></html>`);
       showToast(err.message, "error");
@@ -925,7 +931,7 @@ ${folhas}
                 <div className="filter-group">
                   <span className="filter-lbl">&nbsp;</span>
                   <button className="btn btn-white" style={{color: 'var(--navy2)', gap: '4px'}} onClick={() => setSelectedCursos(new Set())} title="Limpar seleção de cursos para relatório">
-                    <IcoClose /> {selectedCursos.size} curso(s) selecionado(s)
+                    <IcoClose /> {selectedCursos.size} oferta(s) selecionada(s)
                   </button>
                 </div>
               )}
@@ -1059,7 +1065,7 @@ ${folhas}
                   return (
                     <React.Fragment key={row._id}>
                       <tr className={isOpen ? "expanded" : ""}>
-                        <td style={{paddingLeft:12}}><input type="checkbox" checked={selectedCursos.has(row.curso)} onChange={() => toggleCurso(row.curso)} title={`Incluir "${row.curso}" no relatório`} /></td>
+                        <td style={{paddingLeft:12}}><input type="checkbox" checked={selectedCursos.has(ofertaKey(row.curso, row.unidade))} onChange={() => toggleCurso(row.curso, row.unidade)} title={`Incluir "${row.curso}" (${row.unidade}) no relatório`} /></td>
                         <td><button className={`expand-btn${isOpen?" open":""}`} onClick={() => toggleExpand(row._id)}>{isOpen ? <IcoChevD/> : <IcoChevR/>}</button></td>
                         <td><span className="td-code">{codigoLimpo}</span></td>
                         <td><span className="td-curso">{row.curso}</span></td>
