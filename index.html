@@ -749,16 +749,7 @@ function App() {
         </div>
       </section>` : ""}
 
-      <div class="mt-14 pt-2 grid grid-cols-2 gap-12 break-inside-avoid">
-        <div class="text-center">
-          <div class="border-t border-gray-400 pt-1 text-xs font-sans text-gray-500">Responsável pela Emissão</div>
-        </div>
-        <div class="text-center">
-          <div class="border-t border-gray-400 pt-1 text-xs font-sans text-gray-500">Pró-Reitor(a) de Ensino</div>
-        </div>
-      </div>
-
-      <footer class="mt-6 pt-3 border-t border-gray-200 text-center text-[10px] font-sans text-gray-400 italic">
+      <footer class="mt-8 pt-3 border-t border-gray-200 text-center text-[10px] font-sans text-gray-400 italic">
         <p>Documento gerado eletronicamente pelo Portal PROE — Base de Dados UEMS · Documento nº ${escapeHtml(protocolo)}</p>
       </footer>
     </div>`;
@@ -836,6 +827,7 @@ ${folhas}
 </html>`);
 
       showToast(`Relatório gerado para ${ofertasArr.length} oferta(s)!`);
+      setSelectedCursos(new Set());
     } catch (err) {
       openBlobDoc(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Erro no Relatório</title></head><body style="font-family:sans-serif;padding:40px;color:#B91C1C"><p><strong>Erro ao gerar relatório:</strong> ${String(err.message).replace(/[<>&]/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[ch]))}</p></body></html>`);
       showToast(err.message, "error");
