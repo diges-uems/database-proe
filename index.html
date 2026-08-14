@@ -243,6 +243,8 @@ const fmtAno = (val) => {
   return String(val).replace(/\./g, '').trim();
 };
 
+const emAndamento = (ano) => Number(ano) >= ANO_ATUAL;
+
 function nucleoBadge(nucleo) {
   const cls = "badge badge-" + (["NUCH","NUCAE","NULILA","NUCIBS","NUCS","NUCET"].includes(nucleo) ? nucleo : "default");
   return <span className={cls}>{nucleo || "—"}</span>;
@@ -257,8 +259,10 @@ function StatCard({ label, value, colorCls, loading }) {
   );
 }
 
+const ANO_ATUAL = new Date().getFullYear();
+
 const EMPTY = {
-  _id:"", codigo:"", curso:"", unidade:"", ano: 2025,
+  _id:"", codigo:"", curso:"", unidade:"", ano: ANO_ATUAL,
   duracao:"", grau:"Bacharelado", turno:"Integral", modalidade:"Presencial",
   nucleo:"", situacao:"Em Atividade",
   s1:0, s2:0, s3:0, s4:0, s5:0, s6:0,
@@ -291,6 +295,7 @@ function App() {
   const [importStep, setImportStep] = useState(1);
   const [parsedRecords, setParsedRecords] = useState([]);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [enrichingImport, setEnrichingImport] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -348,7 +353,7 @@ function App() {
       ...filters
     });
 
-    const targetYear = Number(filters.ano || 2025);
+    const targetYear = Number(filters.ano || ANO_ATUAL);
     const prevYear = targetYear - 1;
 
     const statsParams = new URLSearchParams({
@@ -485,7 +490,7 @@ function App() {
   }, [filteredProj, pageProj, perPage]);
 
   const memoStats = useMemo(() => {
-    const targetYear = filters.ano || 2025;
+    const targetYear = filters.ano || ANO_ATUAL;
     let potencialVagas = 0;
     
     filteredProj.forEach(p => {
@@ -573,30 +578,88 @@ function App() {
     }
   };
 
+  const parseCsvLine = (line, delim) => {
+    const out = []; let cur = ""; let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inQuotes) {
+        if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false; }
+        else cur += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === delim) { out.push(cur); cur = ""; }
+        else cur += c;
+      }
+    }
+    out.push(cur);
+    return out;
+  };
+
+  const normalizeUnidade = (val) => {
+    const clean = String(val).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+    const match = UNIDADES.find(u => u.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim() === clean);
+    return match || val;
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const rowsCsv = evt.target.result.split('\n').filter(r => r.trim().length > 0);
-      if(rowsCsv.length <= 1) return showToast("Arquivo vazio", "error");
+    reader.onload = async (evt) => {
+      const rowsCsv = evt.target.result.split(/\r?\n/).filter(r => r.trim().length > 0);
+      if (rowsCsv.length <= 1) return showToast("Arquivo vazio", "error");
+      const delim = (rowsCsv[0].split(';').length >= rowsCsv[0].split(',').length) ? ';' : ',';
       const records = rowsCsv.slice(1).map(row => {
-        const values = row.split(';'); let obj = { ...EMPTY, _id: null };
+        const values = parseCsvLine(row, delim); let obj = { ...EMPTY, _id: null };
         CSV_HEADERS.forEach((key, i) => {
           if (values[i] !== undefined) {
              const val = values[i].trim();
+             if (val === "") return;
              if (key === "codigo") { obj[key] = String(val).split('_')[0]; }
+             else if (key === "unidade") { obj[key] = normalizeUnidade(val); }
              else if(["s1","s2","s3","s4","s5","s6","vest","sisu","pss","outros","concluintes","evasao","ano","duracao"].includes(key)) obj[key] = Number(val) || 0;
              else obj[key] = val;
           }
         });
         obj.ingressantes = obj.vest + obj.sisu + obj.pss + obj.outros;
         obj.matriculados = obj.s1 + obj.s2 + obj.s3 + obj.s4 + obj.s5 + obj.s6;
-        obj._status = 'novo'; 
+        obj._status = 'novo';
         return obj;
       }).filter(r => r.curso);
+
+      if (records.length === 0) { showToast("Nenhum registro válido encontrado no arquivo", "error"); e.target.value = null; return; }
+
+      // Preenche código automaticamente para cursos já existentes na base (mesmo curso+unidade em anos anteriores)
+      const semCodigo = records.filter(r => !r.codigo);
+      const paresUnicos = Array.from(new Set(semCodigo.map(r => ofertaKey(r.curso, r.unidade))))
+        .map(k => { const [curso, unidade] = k.split("|||"); return { curso, unidade }; });
+
+      if (paresUnicos.length > 0) {
+        setEnrichingImport(true);
+        try {
+          const lookups = await Promise.all(paresUnicos.map(({ curso, unidade }) => {
+            const params = new URLSearchParams({ page: 1, perPage: 20, search: curso, unidade });
+            return fetch(`${API}?${params.toString()}`)
+              .then(async r => r.ok ? safeParseJSON(r) : null)
+              .catch(() => null);
+          }));
+          const codigoMap = new Map();
+          paresUnicos.forEach(({ curso, unidade }, idx) => {
+            const res = lookups[idx];
+            const candidatos = (res && res.data ? res.data : []).filter(row => row.curso === curso && row.unidade === unidade && row.codigo);
+            if (candidatos.length) {
+              const maisRecente = candidatos.sort((a, b) => Number(b.ano) - Number(a.ano))[0];
+              codigoMap.set(ofertaKey(curso, unidade), String(maisRecente.codigo).split('_')[0]);
+            }
+          });
+          records.forEach(r => { if (!r.codigo) { const found = codigoMap.get(ofertaKey(r.curso, r.unidade)); if (found) r.codigo = found; } });
+        } finally {
+          setEnrichingImport(false);
+        }
+      }
+
       setParsedRecords(records); setImportStep(2); e.target.value = null;
     };
-    reader.readAsText(file, 'ISO-8859-1');
+    reader.readAsText(file, 'UTF-8');
   };
 
   const ofertaKey = (curso, unidade) => `${curso}|||${unidade}`;
@@ -612,6 +675,10 @@ function App() {
 
   const escapeHtml = (str) => String(str ?? "—").replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
+  const APURAR_HTML = '<span style="color:#94A3B8;font-style:italic">A apurar</span>';
+  const reportConclCell = (ano, val) => (emAndamento(ano) && !val) ? APURAR_HTML : escapeHtml(fmt(val));
+  const reportEvasaoCell = (ano, val) => (emAndamento(ano) && !val) ? APURAR_HTML : escapeHtml(val || "—");
+
   const situacaoBadgeCls = (sit) => sit === 'Em Atividade' ? 'bg-emerald-100 text-emerald-700' : sit === 'Extinto' ? 'bg-red-100 text-red-700' : sit === 'Em Extinção' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
 
   const buildCursoFolha = (curso, unidade, historico, isLast) => {
@@ -626,8 +693,8 @@ function App() {
             <td class="p-2 text-left">${escapeHtml(r.situacao)}</td>
             <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.ingressantes))}</td>
             <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.matriculados))}</td>
-            <td class="p-2 text-center font-mono">${escapeHtml(fmt(r.concluintes))}</td>
-            <td class="p-2 text-right font-mono">${escapeHtml(r.evasao)}</td>
+            <td class="p-2 text-center font-mono">${reportConclCell(r.ano, r.concluintes)}</td>
+            <td class="p-2 text-right font-mono">${reportEvasaoCell(r.ano, r.evasao)}</td>
           </tr>`).join("")
       : `<tr><td colSpan="9" class="p-4 text-center text-gray-400">Sem dados históricos encontrados</td></tr>`;
 
@@ -687,8 +754,8 @@ function App() {
               <tr class="border-b border-gray-100">
                 <td class="p-3 font-mono font-semibold">${escapeHtml(fmt(atual.ingressantes))}</td>
                 <td class="p-3 font-mono text-center">${escapeHtml(fmt(atual.matriculados))}</td>
-                <td class="p-3 font-mono text-center">${escapeHtml(fmt(atual.concluintes))}</td>
-                <td class="p-3 font-mono text-center">${escapeHtml(atual.evasao)}</td>
+                <td class="p-3 font-mono text-center">${reportConclCell(atual.ano, atual.concluintes)}</td>
+                <td class="p-3 font-mono text-center">${reportEvasaoCell(atual.ano, atual.evasao)}</td>
                 <td class="p-3 text-right"><span class="px-2 py-1 rounded text-xs font-sans font-bold ${situacaoBadgeCls(atual.situacao)}">${escapeHtml(atual.situacao)}</span></td>
               </tr>
             </tbody>
@@ -1084,8 +1151,8 @@ ${folhas}
                         <td className="right"><span className="td-dur">{row.duracao || "—"}</span></td>
                         <td className="mono-val col-ingr">{fmt(row.ingressantes)}</td>
                         <td className="mono-val col-mat">{fmt(row.matriculados)}</td>
-                        <td className="mono-val col-concl">{fmt(row.concluintes)}</td>
-                        <td className="mono-val col-ev font-bold">{row.evasao || "—"}</td>
+                        <td className="mono-val col-concl">{emAndamento(row.ano) && !row.concluintes ? <span className="text-slate-400" style={{fontStyle:'italic', fontWeight:400}} title="Curso em andamento — concluintes ainda não apurados">A apurar</span> : fmt(row.concluintes)}</td>
+                        <td className="mono-val col-ev font-bold">{emAndamento(row.ano) && !row.evasao ? <span className="text-slate-400" style={{fontStyle:'italic', fontWeight:400}} title="Curso em andamento — evasão ainda não apurada">A apurar</span> : (row.evasao || "—")}</td>
                         <td className="mono-val font-bold">
                           <span className={`inline-block px-2 py-1 rounded ${ociosasColor}`}>
                             {vagasOciosas !== "—" ? (vagasOciosas > 0 ? `+${vagasOciosas}` : vagasOciosas) : "—"}
@@ -1216,10 +1283,14 @@ ${folhas}
                 </div>
                 <div className="p-4 border border-slate-200 rounded-xl" style={{padding:'16px', borderRadius:'12px', border:'1px solid var(--border)'}}>
                   <h3 style={{fontSize:'12px', fontWeight:800, color:'var(--navy)', marginBottom:'8px', textTransform:'uppercase'}}>2. Upload do CSV</h3>
-                  <label className="import-box" style={{display:'block'}}><IcoUpload/><p>Selecione o arquivo <strong>CSV</strong>.</p><input type="file" accept=".csv" className="import-file-input" onChange={handleFileUpload}/></label>
+                  {enrichingImport ? (
+                    <div className="import-box" style={{display:'block'}}><IcoSpinner size={22} className="spin" style={{margin:'0 auto 8px'}}/><p>Buscando códigos de cursos já cadastrados...</p></div>
+                  ) : (
+                    <label className="import-box" style={{display:'block'}}><IcoUpload/><p>Selecione o arquivo <strong>CSV</strong>.</p><input type="file" accept=".csv" className="import-file-input" onChange={handleFileUpload}/></label>
+                  )}
                 </div>
               </div>}
-              {importStep===2 && <div><h3 className="font-bold mb-2">Revisão para Batch ({parsedRecords.length} linhas)</h3><div style={{maxHeight:'350px', overflowY:'auto', border:'1px solid var(--border)', borderRadius:'8px'}}><table className="preview-table"><thead><tr><th>Status</th><th>Curso</th><th>Unidade</th><th>Mat.</th></tr></thead><tbody>{parsedRecords.map((r,i)=><tr key={i} className={r._status}><td><span className={`status-tag ${r._status}`}>Batch</span></td><td style={{fontWeight:600}}>{r.curso}</td><td>{r.unidade}</td><td>{r.matriculados}</td></tr>)}</tbody></table></div></div>}
+              {importStep===2 && <div><h3 className="font-bold mb-2">Revisão para Batch ({parsedRecords.length} linhas)</h3><div style={{maxHeight:'350px', overflowY:'auto', border:'1px solid var(--border)', borderRadius:'8px'}}><table className="preview-table"><thead><tr><th>Status</th><th>Código</th><th>Curso</th><th>Unidade</th><th>Mat.</th></tr></thead><tbody>{parsedRecords.map((r,i)=><tr key={i} className={r._status}><td><span className={`status-tag ${r._status}`}>Batch</span></td><td>{r.codigo ? r.codigo : <span style={{color:'var(--amber)', fontWeight:700}}>—</span>}</td><td style={{fontWeight:600}}>{r.curso}</td><td>{r.unidade}</td><td>{r.matriculados}</td></tr>)}</tbody></table></div></div>}
               {importStep===3 && <div style={{textAlign:'center', padding:'40px 20px'}}><IcoSpinner size={40} className="spin-large"/><h3 style={{fontSize:'18px', fontWeight:800, color:'var(--navy)', margin:'16px 0 8px'}}>Enviando lote ao servidor...</h3><div className="progress-container"><div className="progress-bar" style={{width:'100%'}}></div></div><p style={{fontSize:'11px', fontWeight:700, color:'var(--navy2)', marginTop:'8px'}}>{importProgress.total} registros</p></div>}
             </div>
             <div className="modal-foot">{importStep===1 && <button className="btn btn-white" onClick={()=>setImportModal(false)}>Cancelar</button>}{importStep===2 && <><button className="btn btn-white" onClick={()=>setImportStep(1)}>Voltar</button><button className="btn btn-green" onClick={processBatchImport}><IcoCheck/> Iniciar</button></>}</div>
