@@ -11,6 +11,8 @@
 <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
 <!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
+<!-- Supabase (leitura da Base de Dados — espelho rápido; escrita continua via Apps Script) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -209,9 +211,18 @@ tbody tr:hover .row-actions{opacity:1}
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 
-const { useState, useEffect, useCallback, useMemo } = React;
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
 const API = "https://script.google.com/macros/s/AKfycbxYRhUlLiZDaFUmpsVo-Wso4iMDx_V1tg6k6yyemVOw45ISbx3iq0kybY6N36hzDDtKhw/exec";
+
+// Leitura da Base de Dados via Supabase (espelho público, só leitura — RLS
+// bloqueia insert/update/delete pra essa chave). Escrita continua 100% via
+// Apps Script (API acima), que replica pro Supabase depois de gravar na
+// planilha. Chave "anon"/publishable: segura pra expor no cliente.
+const SUPABASE_URL = "https://rzsknikdafffwcupxxjv.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_revDBzKHnk2xbCDpHELGcw_aAi8Htdq";
+const SUPABASE_TABLE = "proe_cursos";
+const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const ANOS      = ["2018","2019","2020","2021","2022","2023","2024","2025","2026","2027","2028","2029","2030"];
 const UNIDADES  = ["Amambai","Aquidauana","Bataguassu","Campo Grande","Cassilândia","Costa Rica","Coxim","Dourados","Glória de Dourados","Ivinhema","Jardim","Maracaju","Mundo Novo","Naviraí","Nova Andradina","Paranaíba","Polos","Ponta Porã","Ribas do Rio Pardo","Água Clara"];
@@ -237,6 +248,7 @@ const IcoChevD    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="
 
 const n = v => Number(v) || 0;
 const fmt = v => typeof v === 'string' && v.includes('%') ? v : n(v).toLocaleString("pt-BR");
+const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
 const fmtAno = (val) => {
   if (!val) return "—";
@@ -306,6 +318,7 @@ function App() {
   const [generatingReport, setGeneratingReport] = useState(false);
 
   const [dataCache, setDataCache] = useState({ data: [], projecoes: [], meta: {} });
+  const allBaseRowsRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -344,93 +357,102 @@ function App() {
     return () => clearTimeout(timer);
   }, [searchTerm, filters, page, pageProj, perPage, activeTab]);
 
-  const fetchAPI = useCallback((searchStr) => {
+  const loadAllBaseRows = useCallback(async () => {
+    if (allBaseRowsRef.current) return allBaseRowsRef.current;
+    if (!supabaseClient) throw new Error("Cliente Supabase não carregou (CDN indisponível).");
+    const { data, error: sbErr } = await supabaseClient.from(SUPABASE_TABLE).select('*');
+    if (sbErr) throw new Error(sbErr.message);
+    const rows = (data || []).map(r => ({ ...r, _id: r.id }));
+
+    // Evasão é derivada, não fica armazenada — mesmo cálculo que era feito
+    // no Apps Script (compara com o ano anterior do mesmo curso+unidade+turno).
+    const rowMap = new Map();
+    rows.forEach(r => rowMap.set(`${norm(r.curso)}_${norm(r.unidade)}_${norm(r.turno)}_${r.ano}`, r));
+    rows.forEach(r => {
+      r.evasao = "—";
+      const prev = rowMap.get(`${norm(r.curso)}_${norm(r.unidade)}_${norm(r.turno)}_${n(r.ano) - 1}`);
+      if (prev) {
+        const baseAnt = n(prev.matriculados) - n(prev.concluintes);
+        if (baseAnt > 0) {
+          const ev = (1 - ((n(r.matriculados) - n(r.ingressantes)) / baseAnt)) * 100;
+          r.evasao = ev > 0 ? ev.toFixed(1).replace('.', ',') + '%' : '0%';
+        }
+      }
+    });
+
+    allBaseRowsRef.current = rows;
+    return rows;
+  }, []);
+
+  const fetchAPI = useCallback(async (searchStr) => {
     setLoading(true);
     setError(null);
-    
-    const params = new URLSearchParams({
-      page: activeTab === 'base' ? page : pageProj,
-      perPage,
-      search: searchStr || "",
-      ...filters
-    });
+    try {
+      // Projeções ainda vêm do Apps Script — dataset pequeno, sem espelho ainda.
+      const projPromise = fetch(`${API}?page=1&perPage=1`)
+        .then(async r => (r.ok ? safeParseJSON(r) : null))
+        .catch(() => null);
 
-    const targetYear = Number(filters.ano || ANO_ATUAL);
-    const prevYear = targetYear - 1;
+      const allRows = await loadAllBaseRows();
+      const term = norm(searchStr || "");
 
-    const statsParams = new URLSearchParams({
-      page: 1, 
-      perPage: 1, 
-      search: searchStr || "",
-      ...filters,
-      ano: targetYear 
-    });
-
-    const prevStatsParams = new URLSearchParams({
-      page: 1, 
-      perPage: 1, 
-      search: searchStr || "",
-      ...filters,
-      ano: prevYear
-    });
-
-    const fetchMain = fetch(`${API}?${params.toString()}`)
-      .then(async r => {
-        if (!r.ok) throw new Error("A requisição falhou.");
-        return safeParseJSON(r);
+      const rowsNoYearFilter = allRows.filter(r => {
+        if (filters.unidade && r.unidade !== filters.unidade) return false;
+        if (filters.nucleo && !norm(r.nucleo).startsWith(norm(filters.nucleo))) return false;
+        if (filters.grau && r.grau !== filters.grau) return false;
+        if (filters.situacao && r.situacao !== filters.situacao) return false;
+        if (term) {
+          const blob = norm([r.curso, r.unidade, r.nucleo, r.codigo, r.grau].join(" "));
+          if (!blob.includes(term)) return false;
+        }
+        return true;
       });
 
-    const fetchStats = filters.ano 
-      ? Promise.resolve(null)
-      : fetch(`${API}?${statsParams.toString()}`).then(async r => {
-          if (!r.ok) return null;
-          return safeParseJSON(r);
-        });
+      const rows = (filters.ano ? rowsNoYearFilter.filter(r => String(r.ano) === String(filters.ano)) : rowsNoYearFilter)
+        .slice()
+        .sort((a, b) => n(b.ano) - n(a.ano));
 
-    const fetchPrevStats = fetch(`${API}?${prevStatsParams.toString()}`)
-      .then(async r => {
-        if (!r.ok) return null;
-        return safeParseJSON(r);
+      const totalRows = rows.length;
+      const totalPages = Math.max(1, Math.ceil(totalRows / perPage));
+      const pageRows = rows.slice((page - 1) * perPage, page * perPage);
+
+      const targetYear = Number(filters.ano || ANO_ATUAL);
+      const prevYear = targetYear - 1;
+      const sum = (list, key) => list.reduce((acc, r) => acc + n(r[key]), 0);
+      const statsRows = rowsNoYearFilter.filter(r => Number(r.ano) === targetYear);
+      const prevStatsRows = rowsNoYearFilter.filter(r => Number(r.ano) === prevYear);
+      const stats = {
+        cursos: statsRows.length,
+        ingressantes: sum(statsRows, 'ingressantes'),
+        matriculados: sum(statsRows, 'matriculados'),
+        concluintes: sum(statsRows, 'concluintes'),
+      };
+
+      let globalEvasao = "—";
+      const matAtual = sum(statsRows, 'matriculados'), ingAtual = sum(statsRows, 'ingressantes');
+      const matAnt = sum(prevStatsRows, 'matriculados'), conclAnt = sum(prevStatsRows, 'concluintes');
+      const baseAnt = matAnt - conclAnt;
+      if (baseAnt > 0) {
+        globalEvasao = ((1 - ((matAtual - ingAtual) / baseAnt)) * 100).toFixed(1).replace('.', ',') + '%';
+      }
+
+      const projRes = await projPromise;
+
+      setDataCache({
+        data: pageRows,
+        projecoes: (projRes && projRes.projecoes) || [],
+        meta: { totalRows, totalPages, stats, globalEvasao },
       });
-
-    Promise.all([fetchMain, fetchStats, fetchPrevStats])
-      .then(([dataRes, statsRes, prevStatsRes]) => {
-        if (dataRes.error) throw new Error(dataRes.error);
-        
-        let currentStats = dataRes.meta.stats;
-        if (statsRes && statsRes.meta && statsRes.meta.stats) {
-          currentStats = statsRes.meta.stats;
-          dataRes.meta.stats = currentStats;
-        }
-
-        let globalEvasao = "—";
-        if (prevStatsRes && prevStatsRes.meta && prevStatsRes.meta.stats && currentStats) {
-          const prevStats = prevStatsRes.meta.stats;
-          const matAtual = n(currentStats.matriculados);
-          const ingAtual = n(currentStats.ingressantes);
-          const matAnt = n(prevStats.matriculados);
-          const conclAnt = n(prevStats.concluintes);
-
-          const baseAnt = matAnt - conclAnt;
-          if (baseAnt > 0) {
-            const calc = (1 - ((matAtual - ingAtual) / baseAnt)) * 100;
-            globalEvasao = calc.toFixed(1).replace('.', ',') + '%';
-          }
-        }
-        dataRes.meta.globalEvasao = globalEvasao;
-        
-        setDataCache(dataRes);
-        setLoading(false);
-      })
-      .catch(err => { 
-        let errMsg = err.message;
-        if (errMsg.includes('NetworkError') || errMsg.includes('Failed to fetch')) {
-          errMsg = "Erro de rede (NetworkError). Verifique sua conexão e certifique-se de que o Apps Script foi implantado como 'Aplicativo da Web' para 'Qualquer pessoa'.";
-        }
-        setError(errMsg); 
-        setLoading(false); 
-      });
-  }, [filters, page, pageProj, perPage, activeTab]);
+      setLoading(false);
+    } catch (err) {
+      let errMsg = err.message;
+      if (errMsg.includes('NetworkError') || errMsg.includes('Failed to fetch')) {
+        errMsg = "Erro de rede. Verifique sua conexão com o Supabase/Apps Script.";
+      }
+      setError(errMsg);
+      setLoading(false);
+    }
+  }, [filters, page, perPage, loadAllBaseRows]);
 
   const { data: rows = [], projecoes: rowsProj = [], meta = {} } = dataCache;
   const { totalPages = 1, totalRows = 0, stats = {} } = meta;
@@ -588,7 +610,7 @@ function App() {
       const j = await safeParseJSON(r);
       if (j.status !== "success") throw new Error(j.message);
       showToast(form._id ? "Atualizado!" : "Salvo!");
-      setModal(false); fetchAPI(searchTerm);
+      setModal(false); allBaseRowsRef.current = null; fetchAPI(searchTerm);
     } catch(err) { showToast(err.message, "error"); }
     finally { setSaving(false); }
   };
@@ -611,7 +633,7 @@ function App() {
     } catch (e) {
       showToast(e.message, "error");
     } finally {
-      setImportModal(false); fetchAPI(searchTerm);
+      setImportModal(false); allBaseRowsRef.current = null; fetchAPI(searchTerm);
     }
   };
 
@@ -1007,7 +1029,7 @@ ${folhas}
               <a href="https://docs.google.com/spreadsheets/d/1_pGPcgzi8dz1TGjQ4bXlRnDDWYVamVBl-jpw9kg3-y8/edit?gid=205659061" target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
                 <IcoExternal/> Planilha
               </a>
-              <button className="btn btn-ghost" onClick={() => fetchAPI(searchTerm)} disabled={loading}>
+              <button className="btn btn-ghost" onClick={() => { allBaseRowsRef.current = null; fetchAPI(searchTerm); }} disabled={loading}>
                 <IcoRefresh className={loading ? "spin" : ""} /> Sincronizar
               </button>
               <button className="btn btn-navy" onClick={() => { setImportStep(1); setImportModal(true); }}>
