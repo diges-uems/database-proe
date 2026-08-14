@@ -644,35 +644,43 @@ function App() {
             <td class="p-2 text-right font-mono font-bold">${escapeHtml(fmt(r.matriculados))}</td>
           </tr>`).join("");
 
+    const protocolo = `PROE/${new Date().getFullYear()}/${String(curso).slice(0, 3).toUpperCase()}-${String(unidade).slice(0, 3).toUpperCase()}`;
+
     return `
     <div class="folha-a4 text-gray-800${isLast ? "" : " page-break"}">
-      <div class="text-center mb-8">
-        <div class="mb-4 flex justify-center">
-          <img src="https://www.uems.br/anexos/imagens/conteudo/uems_imagens_2025-06-13_13-31-53.png" alt="Logo UEMS" class="h-24 mx-auto" />
+      <div class="flex items-center gap-5 mb-6 pb-5 border-b-2" style="border-color:#003366">
+        <img src="https://www.uems.br/anexos/imagens/conteudo/uems_imagens_2025-06-13_13-31-53.png" alt="Logo UEMS" class="h-16 shrink-0" />
+        <div class="flex-1 leading-tight">
+          <p class="font-sans text-[10px] font-bold uppercase tracking-widest text-gray-500">Universidade Estadual de Mato Grosso do Sul</p>
+          <p class="font-sans text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Pró-Reitoria de Ensino</p>
+          <h1 class="font-serif uems-blue-text text-xl font-bold">Histórico de Oferta de Curso</h1>
         </div>
-        <p class="text-sm text-gray-500">Data de Emissão: ${escapeHtml(new Date().toLocaleDateString("pt-BR"))}</p>
+        <div class="text-right font-sans text-[10px] text-gray-500 shrink-0">
+          <p>Documento nº ${escapeHtml(protocolo)}</p>
+          <p>Emitido em ${escapeHtml(new Date().toLocaleDateString("pt-BR"))}</p>
+        </div>
       </div>
 
-      <section class="mb-8">
-        <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-3 uppercase tracking-wide">1. Identificação do Curso</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+      <section class="mb-7">
+        <h3 class="font-serif uems-blue-text text-base font-bold border-b border-gray-200 pb-1 mb-3">1. Identificação do Curso</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm font-serif">
           <p><strong>Curso:</strong> ${escapeHtml(curso)} ${atual.grau ? `(${escapeHtml(atual.grau)})` : ""}</p>
           <p><strong>Unidade Universitária:</strong> ${escapeHtml(unidade)}</p>
           <p><strong>Código:</strong> ${escapeHtml(atual.codigo ? String(atual.codigo).split('_')[0] : "—")}</p>
         </div>
       </section>
 
-      <section class="mb-8 break-inside-avoid">
-        <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-3 uppercase tracking-wide">2. Situação Atual (${escapeHtml(fmtAno(atual.ano) || "—")})</h3>
+      <section class="mb-7 break-inside-avoid">
+        <h3 class="font-serif uems-blue-text text-base font-bold border-b border-gray-200 pb-1 mb-3">2. Situação Atual (${escapeHtml(fmtAno(atual.ano) || "—")})</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-sm border-collapse">
             <thead>
-              <tr class="bg-uems-blue-header text-white font-semibold">
-                <th class="p-3 border-b border-blue-900">Ingressantes</th>
-                <th class="p-3 border-b border-blue-900 text-center">Matriculados</th>
-                <th class="p-3 border-b border-blue-900 text-center">Concluintes</th>
-                <th class="p-3 border-b border-blue-900 text-center">Evasão</th>
-                <th class="p-3 border-b border-blue-900 text-right">Situação</th>
+              <tr class="bg-uems-blue-header text-white font-sans font-semibold">
+                <th class="p-3 border-b border-blue-900 text-[11px] uppercase tracking-wide">Ingressantes</th>
+                <th class="p-3 border-b border-blue-900 text-center text-[11px] uppercase tracking-wide">Matriculados</th>
+                <th class="p-3 border-b border-blue-900 text-center text-[11px] uppercase tracking-wide">Concluintes</th>
+                <th class="p-3 border-b border-blue-900 text-center text-[11px] uppercase tracking-wide">Evasão</th>
+                <th class="p-3 border-b border-blue-900 text-right text-[11px] uppercase tracking-wide">Situação</th>
               </tr>
             </thead>
             <tbody class="table-zebra">
@@ -681,16 +689,16 @@ function App() {
                 <td class="p-3 font-mono text-center">${escapeHtml(fmt(atual.matriculados))}</td>
                 <td class="p-3 font-mono text-center">${escapeHtml(fmt(atual.concluintes))}</td>
                 <td class="p-3 font-mono text-center">${escapeHtml(atual.evasao)}</td>
-                <td class="p-3 text-right"><span class="px-2 py-1 rounded text-xs font-bold ${situacaoBadgeCls(atual.situacao)}">${escapeHtml(atual.situacao)}</span></td>
+                <td class="p-3 text-right"><span class="px-2 py-1 rounded text-xs font-sans font-bold ${situacaoBadgeCls(atual.situacao)}">${escapeHtml(atual.situacao)}</span></td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <section class="mb-8 bg-gray-50 p-6 rounded-lg border border-gray-200 break-inside-avoid">
-        <h3 class="text-md font-bold mb-3 uppercase tracking-wide">3. Como os Indicadores são Calculados</h3>
-        <ul class="text-sm space-y-2 text-gray-600">
+      <section class="mb-7 bg-gray-50 p-6 rounded-lg border border-gray-200 break-inside-avoid">
+        <h3 class="font-serif uems-blue-text text-base font-bold mb-3">3. Como os Indicadores são Calculados</h3>
+        <ul class="text-sm font-serif space-y-2 text-gray-700">
           <li><strong>Ingressantes:</strong> soma de Vestibular, SISU, PSS e Outros no ano.</li>
           <li><strong>Matriculados:</strong> soma dos alunos matriculados da 1ª à 6ª série no ano.</li>
           <li><strong>Evasão:</strong> percentual de alunos que saíram do curso sem concluir. É calculada comparando os matriculados do ano anterior (já descontados os concluintes daquele ano) com os matriculados que efetivamente permaneceram no ano atual.</li>
@@ -698,20 +706,20 @@ function App() {
       </section>
 
       <section class="mb-4">
-        <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-4 uppercase tracking-wide">4. Histórico Detalhado (2018–2030)</h3>
+        <h3 class="font-serif uems-blue-text text-base font-bold border-b border-gray-200 pb-1 mb-4">4. Histórico Detalhado (2018–2030)</h3>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm border-collapse border border-gray-200">
+          <table class="w-full text-sm border-collapse border border-blue-900">
             <thead>
-              <tr class="bg-gray-100">
-                <th class="p-2 text-left border-b border-gray-300">Ano</th>
-                <th class="p-2 text-left border-b border-gray-300">Unidade</th>
-                <th class="p-2 text-left border-b border-gray-300">Grau</th>
-                <th class="p-2 text-left border-b border-gray-300">Turno</th>
-                <th class="p-2 text-left border-b border-gray-300">Situação</th>
-                <th class="p-2 text-center border-b border-gray-300">Ingr.</th>
-                <th class="p-2 text-center border-b border-gray-300">Mat.</th>
-                <th class="p-2 text-center border-b border-gray-300">Concl.</th>
-                <th class="p-2 text-right border-b border-gray-300">Evasão</th>
+              <tr class="bg-uems-blue-header text-white font-sans font-semibold">
+                <th class="p-2 text-left border-b border-blue-900 text-[11px] uppercase tracking-wide">Ano</th>
+                <th class="p-2 text-left border-b border-blue-900 text-[11px] uppercase tracking-wide">Unidade</th>
+                <th class="p-2 text-left border-b border-blue-900 text-[11px] uppercase tracking-wide">Grau</th>
+                <th class="p-2 text-left border-b border-blue-900 text-[11px] uppercase tracking-wide">Turno</th>
+                <th class="p-2 text-left border-b border-blue-900 text-[11px] uppercase tracking-wide">Situação</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">Ingr.</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">Mat.</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">Concl.</th>
+                <th class="p-2 text-right border-b border-blue-900 text-[11px] uppercase tracking-wide">Evasão</th>
               </tr>
             </thead>
             <tbody>${linhasHistorico}</tbody>
@@ -721,19 +729,19 @@ function App() {
 
       ${historicoComSerie.length ? `
       <section class="mb-4">
-        <h3 class="text-md font-bold border-b-2 border-gray-100 pb-1 mb-4 uppercase tracking-wide">5. Matrículas por Série (Evolução Anual)</h3>
+        <h3 class="font-serif uems-blue-text text-base font-bold border-b border-gray-200 pb-1 mb-4">5. Matrículas por Série (Evolução Anual)</h3>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm border-collapse border border-gray-200">
+          <table class="w-full text-sm border-collapse border border-blue-900">
             <thead>
-              <tr class="bg-gray-100">
-                <th class="p-2 text-left border-b border-gray-300">Ano</th>
-                <th class="p-2 text-center border-b border-gray-300">1ª</th>
-                <th class="p-2 text-center border-b border-gray-300">2ª</th>
-                <th class="p-2 text-center border-b border-gray-300">3ª</th>
-                <th class="p-2 text-center border-b border-gray-300">4ª</th>
-                <th class="p-2 text-center border-b border-gray-300">5ª</th>
-                <th class="p-2 text-center border-b border-gray-300">6ª</th>
-                <th class="p-2 text-right border-b border-gray-300">Total</th>
+              <tr class="bg-uems-blue-header text-white font-sans font-semibold">
+                <th class="p-2 text-left border-b border-blue-900 text-[11px] uppercase tracking-wide">Ano</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">1ª</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">2ª</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">3ª</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">4ª</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">5ª</th>
+                <th class="p-2 text-center border-b border-blue-900 text-[11px] uppercase tracking-wide">6ª</th>
+                <th class="p-2 text-right border-b border-blue-900 text-[11px] uppercase tracking-wide">Total</th>
               </tr>
             </thead>
             <tbody>${linhasSerie}</tbody>
@@ -741,8 +749,17 @@ function App() {
         </div>
       </section>` : ""}
 
-      <footer class="mt-8 pt-4 border-t border-gray-200 text-center text-[10px] text-gray-400 italic">
-        <p>Documento gerado automaticamente pelo Portal PROE — Base de Dados UEMS.</p>
+      <div class="mt-14 pt-2 grid grid-cols-2 gap-12 break-inside-avoid">
+        <div class="text-center">
+          <div class="border-t border-gray-400 pt-1 text-xs font-sans text-gray-500">Responsável pela Emissão</div>
+        </div>
+        <div class="text-center">
+          <div class="border-t border-gray-400 pt-1 text-xs font-sans text-gray-500">Pró-Reitor(a) de Ensino</div>
+        </div>
+      </div>
+
+      <footer class="mt-6 pt-3 border-t border-gray-200 text-center text-[10px] font-sans text-gray-400 italic">
+        <p>Documento gerado eletronicamente pelo Portal PROE — Base de Dados UEMS · Documento nº ${escapeHtml(protocolo)}</p>
       </footer>
     </div>`;
   };
@@ -789,11 +806,11 @@ function App() {
 <title>Relatório Histórico UEMS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:wght@400;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"><\/script>
-<script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','sans-serif'] }, colors: { 'uems-blue': '#003366' } } } }<\/script>
+<script>tailwind.config = { theme: { extend: { fontFamily: { serif: ["'PT Serif'","serif"], sans: ["'PT Sans'","sans-serif"], mono: ["'JetBrains Mono'","monospace"] }, colors: { 'uems-blue': '#003366' } } } }<\/script>
 <style>
-body{font-family:'Inter',sans-serif;background-color:#f1f5f9}
+body{font-family:'PT Serif',serif;background-color:#f1f5f9}
 .uems-blue-text{color:#003366}
 .bg-uems-blue-header{background-color:#003366}
 .table-zebra tr:nth-child(even){background-color:#f9fafb}
