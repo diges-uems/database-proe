@@ -246,8 +246,10 @@ const fmtAno = (val) => {
 const emAndamento = (ano) => Number(ano) >= ANO_ATUAL;
 
 function nucleoBadge(nucleo) {
-  const cls = "badge badge-" + (["NUCH","NUCAE","NULILA","NUCIBS","NUCS","NUCET"].includes(nucleo) ? nucleo : "default");
-  return <span className={cls}>{nucleo || "—"}</span>;
+  const val = String(nucleo || "");
+  const sigla = ["NUCH","NUCAE","NULILA","NUCIBS","NUCS","NUCET"].find(s => val.toUpperCase().startsWith(s));
+  const cls = "badge badge-" + (sigla || "default");
+  return <span className={cls}>{val || "—"}</span>;
 }
 
 function StatCard({ label, value, colorCls, loading }) {
