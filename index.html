@@ -264,10 +264,13 @@ function nucleoBadge(nucleo) {
   return <span className={cls}>{val || "—"}</span>;
 }
 
-function StatCard({ label, value, colorCls, loading }) {
+function StatCard({ label, value, colorCls, loading, hint }) {
   return (
     <div className={`stat-card ${colorCls}`}>
-      <div className="stat-card-lbl">{label}</div>
+      <div className="stat-card-lbl">
+        {label}
+        {hint && <span title={hint} style={{marginLeft:4, cursor:'help', opacity:.6}}>ⓘ</span>}
+      </div>
       {loading ? <div className="stat-skeleton" /> : <div className={`stat-card-val ${colorCls}`}>{fmt(value)}</div>}
     </div>
   );
@@ -1063,8 +1066,8 @@ ${folhas}
             <StatCard label={`Ingressantes (${memoStats.anoRef})`} value={memoStats.ingressantes} colorCls="amber" loading={loading} />
             <StatCard label={`Matriculados (${memoStats.anoRef})`} value={memoStats.matriculados} colorCls="white" loading={loading} />
             <StatCard label={`Concluintes (${memoStats.anoRef})`} value={memoStats.concluintes} colorCls="purple" loading={loading} />
-            <StatCard label={`Taxa de Ocupação`} value={memoStats.ocupacao} colorCls="blue" loading={loading} />
-            <StatCard label={`Evasão Média Global`} value={memoStats.evasao} colorCls="red" loading={loading} />
+            <StatCard label={`Taxa de Ocupação`} value={memoStats.ocupacao} colorCls="blue" loading={loading} hint={emAndamento(memoStats.anoRef) ? `Dados de ${memoStats.anoRef} ainda em andamento — taxa real só fecha no fim do ano letivo` : null} />
+            <StatCard label={`Evasão Média Global`} value={memoStats.evasao} colorCls="red" loading={loading} hint={emAndamento(memoStats.anoRef) ? `Dados de ${memoStats.anoRef} ainda em andamento — evasão real só fecha no fim do ano letivo` : null} />
           </div>
         </div>
       </div>
