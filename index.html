@@ -319,6 +319,7 @@ function App() {
 
   const [dataCache, setDataCache] = useState({ data: [], projecoes: [], meta: {} });
   const allBaseRowsRef = useRef(null);
+  const projecoesRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -384,14 +385,26 @@ function App() {
     return rows;
   }, []);
 
+  const loadProjecoes = useCallback(async () => {
+    if (projecoesRef.current) return projecoesRef.current;
+    try {
+      const r = await fetch(`${API}?page=1&perPage=1`);
+      const projRes = r.ok ? await safeParseJSON(r) : null;
+      const projecoes = (projRes && projRes.projecoes) || [];
+      projecoesRef.current = projecoes;
+      return projecoes;
+    } catch {
+      return [];
+    }
+  }, []);
+
   const fetchAPI = useCallback(async (searchStr) => {
     setLoading(true);
     setError(null);
     try {
-      // Projeções ainda vêm do Apps Script — dataset pequeno, sem espelho ainda.
-      const projPromise = fetch(`${API}?page=1&perPage=1`)
-        .then(async r => (r.ok ? safeParseJSON(r) : null))
-        .catch(() => null);
+      // Projeções vêm do Apps Script, mas só buscadas 1x por sessão (cache em ref)
+      // — antes bloqueava toda troca de filtro/página no cold-start do Apps Script.
+      const projPromise = loadProjecoes();
 
       const allRows = await loadAllBaseRows();
       const term = norm(searchStr || "");
@@ -1011,7 +1024,7 @@ ${folhas}
       {loading && memoizedRows.length === 0 && !error && (
         <div className="loading-overlay">
           <IcoSpinner size={48} className="spin spin-large" />
-          <h2>Atualizando Base de Dados UEMS...BUGOU TUDO SÓ CONSIGO ARRUMAR DEPOIS DA 18 😢</h2>
+          <h2>Atualizando Base de Dados UEMS...</h2>
           <p>Conectando ao banco de dados oficial.</p>
         </div>
       )}
@@ -1022,14 +1035,14 @@ ${folhas}
           <div className="header-top">
             <div className="header-brand">
               <p>Pró-Reitoria de Ensino · UEMS</p>
-              <h1>PROE <span>Base de Dados- BUGOU TUDO SÓ CONSIGO ARRUMAR DEPOIS DA 18 😢</span></h1>
+              <h1>PROE <span>Base de Dados</span></h1>
               <small>Graduação · 2018–2030</small>
             </div>
             <div className="header-actions">
               <a href="https://docs.google.com/spreadsheets/d/1_pGPcgzi8dz1TGjQ4bXlRnDDWYVamVBl-jpw9kg3-y8/edit?gid=205659061" target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
                 <IcoExternal/> Planilha
               </a>
-              <button className="btn btn-ghost" onClick={() => { allBaseRowsRef.current = null; fetchAPI(searchTerm); }} disabled={loading}>
+              <button className="btn btn-ghost" onClick={() => { allBaseRowsRef.current = null; projecoesRef.current = null; fetchAPI(searchTerm); }} disabled={loading}>
                 <IcoRefresh className={loading ? "spin" : ""} /> Sincronizar
               </button>
               <button className="btn btn-navy" onClick={() => { setImportStep(1); setImportModal(true); }}>
